@@ -121,6 +121,7 @@ get_summary_of_outliers <- function(object,OUTLIERS_CELLBASE_PATH,NON_OUTLIER_OB
 }
 
 ALLSAMPLES=c("23003","24078","24533","23359","23526","24173","24534","24174","24535","23527","24175","24536","23961","24441","24835","23965","24489","24007","24490","24076","24518")
+
 bin_size <- "100"
 
 for (i in 1:length(ALLSAMPLES)){
