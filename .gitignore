@@ -1,2 +1,5 @@
 scAboslute-obj
 scAboslute-obj/*.rds
+.DS_Store
+post-scAbsolute
+post-scAbsolute/*
