@@ -1,4 +1,4 @@
-
+# For running this, you need to run GET_summary_of_outliers first and have cellbased_outliers object
 library("reshape")
 library(dplyr)
 library(ComplexHeatmap)
@@ -6,6 +6,7 @@ library(tidyr)
 library(ggplot2)
 library(viridis)
 library(dendextend)
+library(stringr)
 
 source("OneDrive - CRUK Cambridge Institute/CINSignatureDiscovery/CIN_Compendium_Discovery/scripts/helper_functions.R")
 source("OneDrive - CRUK Cambridge Institute/CINSignatureDiscovery/CIN_Compendium_Discovery/scripts/main_functions.R")
@@ -50,11 +51,39 @@ get_summary_of_dropouts <- function(object,cellbased_outliers,CN_BINNED_PATH,CEL
   saveRDS(cn_binned,CN_SEGMENTED_PATH)
   
   # Split the sample column into three columns: SINCEL, Plate, and AZ
+  ##cn_binned_split <- cn_binned %>%
+    ##separate(sample, into = c("SINCEL", "Plate", "Plate_number", "AZNumber"), sep = "_|(?<=[0-9])(?=[A-Z])")
+    ###separate(sample, into = c("SINCEL","210","SC", "Plate", "Plate_number", "AZNumber"), sep = "_|(?<=[0-9])(?=[A-Z])")
+  
+ # cn_binned_split <- cn_binned %>%
+#    rowwise() %>%
+ #   mutate(parts_count = str_count(sample, "_") + 1) %>%
+  #  ungroup() %>%
+  #  mutate(
+#      sample_split = case_when(
+ #       parts_count == 4 ~ list(separate(data.frame(sample = sample), sample, into = c("SINCEL", "Plate", "Plate_number", "AZNumber"), sep = "_|(?<=[0-9])(?=[A-Z])")),
+  #      parts_count == 6 ~ list(separate(data.frame(sample = sample), sample, into = c("SINCEL", "210", "SC", "Plate", "Plate_number", "AZNumber"), sep = "_|(?<=[0-9])(?=[A-Z])")),
+   #     parts_count == 7 ~ list(separate(data.frame(sample = sample), sample, into = c("SINCEL", "210", "SC", "GEMNEG", "Plate", "Plate_number", "AZNumber"), sep = "_|(?<=[0-9])(?=[A-Z])")),
+    #    TRUE ~ list(data.frame(SINCEL = NA, Plate = NA, Plate_number = NA, AZNumber = NA)) # Default case to handle unexpected inputs
+#      )
+ #   ) %>%
+  #  unnest(cols = sample_split, keep_empty = TRUE) %>%
+   # select(-parts_count)
+  
+  # Convert 'sample' column to character to avoid issues with factors
+  cn_binned <- cn_binned %>%
+    mutate(sample = as.character(sample))
+  
+  # Extracting the last part (AZNumber) from the sample
+  #cn_binned_split <- cn_binned %>%
+  #  mutate(AZNumber = sapply(strsplit(sample, "_"), function(x) tail(x, 1)))
+
+  
   cn_binned_split <- cn_binned %>%
-    separate(sample, into = c("SINCEL","210","SC", "Plate", "Plate_number", "AZNumber"), sep = "_|(?<=[0-9])(?=[A-Z])")
-  
-  
-  
+    mutate(AZNumber = sapply(gsub("(_[123456789]?)$", "", sample), function(x) {
+      last_part <- tail(strsplit(x, "_")[[1]], 1)
+      if (last_part == "") "" else last_part
+    }))
   
   
   # Split the AZ column into A and Number
@@ -127,15 +156,41 @@ get_summary_of_dropouts <- function(object,cellbased_outliers,CN_BINNED_PATH,CEL
   cell_chr_dropout_long <- cell_chr_dropout_long %>%
     mutate(status = sapply(cell_name, assign_status, cellbased_outliers = cellbased_outliers))
   
+  print(cell_chr_dropout_long$status)
   # Ensure the status column in heatmap_long has these four categories
   cell_chr_dropout_long$status <- factor(cell_chr_dropout_long$status, 
                                          levels = c("pass", "rpc_outlier", "alpha_outlier", "replicating","na_alpha_outlier","dmap_outlier","gini_outlier"))
   
   saveRDS(cell_chr_dropout_long,CELL_CHR_DROPOUT_LONG_PATH)
+  
+  
+  # Assuming your original dataframe is named 'df'
+  cell_dropout_status <- cell_chr_dropout_long %>%
+    select(-chromosome) %>%  # Remove the chromosome column
+    group_by(cell_name, status) %>%  # Group by cell_name and status
+    summarise(count = sum(count, na.rm = TRUE)) %>%  # Sum the counts
+    ungroup()  # Ungroup to remove the grouping attribute
+  
+  # Write the new dataframe to a CSV file
+  write.csv(cell_dropout_status, CELLS_DROPOUT_STATUS_PATH, row.names = FALSE)
 
 }
 
-ALLSAMPLES=c("23003","24078","24533","23359","23526","24173","24534","24174","24535","23527","24175","24536","23961","24441","24835","23965","24489","24007","24490","24076","24518")
+ALLSAMPLES=c("23003","24078","24533","23359","23526","24173","24534","24174","24535","23527")
+ALLSAMPLES=c("24175","24536","23961","24441","24835","23965","24489","24007","24490","24076","24518")
+ALLSAMPLES <- c("24173","24489","24007","23965","24490","24174")
+ALLSAMPLES=c("23003","23359","23961","23965","24007")
+ALLSAMPLES=c("24078","24518")
+ALLSAMPLES=c("24077","24130","24491","23303","24532","23528")
+ALLSAMPLES=c("23355","25146","25148","24831","24832","24833")
+
+ALLSAMPLES=c("25146","25147","25149","24831","24832","24833")
+ALLSAMPLES=c("24831","24832","24833")
+
+ALLSAMPLES=c("24518","24491")
+
+ALLSAMPLES=c("24911","24912","24913")
+
 bin_size <- "100"
 
 for (i in 1:length(ALLSAMPLES)){
@@ -147,10 +202,12 @@ for (i in 1:length(ALLSAMPLES)){
   CN_BINNED_PATH <- paste0(OUTPUT,'/cn_binned.rds')
   CN_SEGMENTED_PATH <- paste0(OUTPUT,'/cn_segmented.rds')
   CELL_CHR_DROPOUT_LONG_PATH <- paste0(OUTPUT,'/cell_chr_dropout.rds')
-  
+  CELLS_DROPOUT_STATUS_PATH <- paste0(OUTPUT,"/cells_dropout_status.csv")
   cellbased_outliers = readRDS(paste0(OUTPUT,"/cellbased_outliers.rds"))#summary_outliers.rds
   object<- readRDS(ALLCELLS)
+  
   
   get_summary_of_dropouts(object,cellbased_outliers,CN_BINNED_PATH,CELL_POS_DROPOUT_PATH,CN_SEGMENTED_PATH,CELL_CHR_DROPOUT_LONG_PATH)
   
 }
+

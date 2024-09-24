@@ -11,15 +11,34 @@ current_directory <- getwd()
 print(paste("Current Working Directory:", current_directory))
 
 
-get_summary_of_outliers <- function(object,OUTLIERS_CELLBASE_PATH,NON_OUTLIER_OBJ_PATH,OUTLIER_SUMMARY_PATH){
+get_summary_of_outliers <- function(object,OUTLIERS_CELLBASE_PATH,NON_OUTLIER_OBJ_PATH,OUTLIER_SUMMARY_PATH,SLX_value,UID_value){
+ 
+  # Modify the data frame before passing it to the predict_replicating function
+  modified_df <- Biobase::pData(object) %>%
+    tidyr::separate(name, into = c("TECHNOLOGY", "cellid"), sep = "_(?=[^_]+$)", remove = FALSE) %>%
+    mutate(SLX = SLX_value, UID = UID_value)
   
+  # Pass the modified data frame to predict_replicating
+  df <- predict_replicating(
+    modified_df,
+    batch = "technology",
+    cutoff_value = 1,
+    iqr_value = 1.5
+  )
   
-  df = predict_replicating(Biobase::pData(object) %>% tidyr::separate(name, sep="_", into=c( "SLX","UID","ref", "cellid"), remove=FALSE) ,cutoff_value=1,iqr_value = 1.5)
-  all_cellids <- unique(df$cellid)
+  if (length(unique(df$cellid))>1){
+    all_cellids <- unique(df$cellid)
+  }else if((length(unique(df$name))>1)){
+    print("Problem!!!")
+    all_cellids <- unique(df$name)
+  }else{
+    print("Problem: I could not find the column of names!")
+  }
+  
   na_alpha_cells <- df[!complete.cases(df$hmm.alpha), ]
   df <- df[complete.cases(df$hmm.alpha), ]
   rep_cells = df[df$replicating==TRUE,]$name
-  condition_to_remove <- pData(object)$name %in% rep_cells
+  condition_to_remove <- df$name %in% rep_cells
   non_rep_object <- object[, !condition_to_remove]
   #iq = pre_scUnique_filtering(df[df$replicating==FALSE,],OUTPUT,mapd_cutoff=2,mapd_density_control= TRUE,gini_norm_cutoff=2,alpha_cutoff=2,alpha_hard_cutoff =0.05,gini_density_control=TRUE,rpc_cutoff=15)
   mapd_cutoff=1.5
@@ -100,6 +119,7 @@ get_summary_of_outliers <- function(object,OUTLIERS_CELLBASE_PATH,NON_OUTLIER_OB
   
   
   # Create the summary dataframe
+  if (length(unique(df$cellid))>1){
   summary_df_outliers <- data.frame(cellid = all_cellids) %>%
     mutate(
       replicating = cellid %in% df[df$replicating,]$cellid,
@@ -110,7 +130,20 @@ get_summary_of_outliers <- function(object,OUTLIERS_CELLBASE_PATH,NON_OUTLIER_OB
       na_alpha_outliers = cellid %in% na_alpha_cells$cellid
     ) %>%
     mutate(across(-cellid, as.integer))
-  
+  }else if((length(unique(df$name))>1)){
+    summary_df_outliers <- data.frame(cellid = all_cellids) %>%
+      mutate(
+        replicating = cellid %in% df[df$replicating,]$name,
+        dmap_outlier = cellid %in% iq[iq$dmapd.outlier,]$name,
+        gini_outlier = cellid %in% iq[iq$gini.outlier,]$name,
+        rpc_outlier = cellid %in% not_rep[not_rep$rpc<15,]$name,
+        alpha_outlier = cellid %in% iq[iq$alpha.outlier,]$name,
+        na_alpha_outliers = cellid %in% na_alpha_cells$name
+      ) %>%
+      mutate(across(-cellid, as.integer))
+  } else {
+    print("There is a problem with the name of the cells")
+  }
   # Get a summary of how many cells are in each category
   summary_counts <- summary_df_outliers %>%
     summarise(across(-cellid, sum))
@@ -121,6 +154,17 @@ get_summary_of_outliers <- function(object,OUTLIERS_CELLBASE_PATH,NON_OUTLIER_OB
 }
 
 ALLSAMPLES=c("23003","24078","24533","23359","23526","24173","24534","24174","24535","23527","24175","24536","23961","24441","24835","23965","24489","24007","24490","24076","24518")
+
+ALLSAMPLES <- c("24173","24489","24007","23965","24490","24174")
+ALLSAMPLES=c("24077","24130","24491","23303","24532","23528")
+ALLSAMPLES=c("23355","25146","25148","24831","24832","24833")
+
+ALLSAMPLES=c("25146","25147","25149","24831","24832","24833")
+ALLSAMPLES=c("24518","24491")
+categories <- c("PEO STOP","PEO MISSENSE")
+
+ALLSAMPLES=c("24911","24912","24913")
+categories <- c("FFPE","FFPE","FFPE")
 
 bin_size <- "100"
 
@@ -139,5 +183,8 @@ for (i in 1:length(ALLSAMPLES)){
   NON_OUTLIER_OBJ_PATH = paste0(OUTPUT,"/",SAMPLENAME,"_non_outlier.rds")
   OUTLIER_SUMMARY_PATH = paste0(OUTPUT,"/outlier_summary.rds")#summary_df.rds
   object = readRDS(ALLCELLS)
-  get_summary_of_outliers(object,OUTLIERS_CELLBASE_PATH,NON_OUTLIER_OBJ_PATH,OUTLIER_SUMMARY_PATH)
+  SLX_value <- paste0("SLX-",SAMPLENAME)
+  UID_value <- categories[i]
+  get_summary_of_outliers(object,OUTLIERS_CELLBASE_PATH,NON_OUTLIER_OBJ_PATH,OUTLIER_SUMMARY_PATH,SLX_value,UID_value)
 }
+
