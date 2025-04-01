@@ -1,5 +1,5 @@
 
-sample <- "SLX-25394_B4-15-qc_100"
+sample <- "SLX-25394_C9-15-qc_100"
 
 tree <- readRDS(paste0("../../Volumes/Fl/scUnique_results/",sample,"/",sample,".tree.RDS"))
 object <- readRDS(paste0("../../Volumes/Fl/scUnique_results/",sample,"/",sample,".finalCN.RDS"))
