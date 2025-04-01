@@ -21,6 +21,12 @@ ALLSAMPLES=c("24911","24912","24913")
 category_order <- c("FFPE","FFPE","FFPE")
 sample_categories <- c("FFPE")
 
+
+
+ALLSAMPLES=c("25393","25394","25394_B4","25394_C9","25394_D5","25394_D7","25394_D11","25394_G3")
+sample_categories <- c("PEO1 parent","PEO1 children","PEO1 B4","PEO1 C9","PEO1 D5","PEO1 B7","PEO1 D11","PEO1 G3")
+
+
 bin_size <- "100"
 
 # Initialize an empty data frame to store the combined outlier summaries
@@ -29,7 +35,7 @@ dropout_summary <- data.frame()
 for (i in 1:length(ALLSAMPLES)) {
   SAMPLENAME <- ALLSAMPLES[i]
   SAMPLEONJ <- paste0("SLX-",SAMPLENAME,"_",bin_size)
-  OUTPUT <- file.path("Documents/sc_analysis/post-scAbsolute", SAMPLEONJ)
+  OUTPUT <- file.path("../../Volumes/Fl/sc_analysis/post-scAbsolute", SAMPLEONJ)
   
   # Read the outlier_summary for the current sample
   cn_binned <- readRDS(paste0(OUTPUT, "/cn_binned.rds"))
@@ -90,5 +96,5 @@ ggplot(heatmap_data, aes(x = Var1, y = Sample, fill = Freq_per_cell)) +
   )
 
 # Save the plot
-ggsave("Documents/sc_analysis/all_samples_23july2024/summary_dropout_heatmap_FFPE.png", width = 6, height = 12, dpi = 300)
+ggsave("../../Volumes/Fl/sc_analysis/all_samples_23july2024/summary_dropout_heatmap_PEO1_evolution.png", width = 6, height = 12, dpi = 300)
 

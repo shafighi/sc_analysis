@@ -24,14 +24,18 @@ ALLSAMPLES=c("25146","25147","25148","25149","24831","24832","24833")
 ALLSAMPLES=c("24831","24832","24833")
 ALLSAMPLES=c("24518")
 ALLSAMPLES=c("24911","24912","24913")
+ALLSAMPLES=c("24757")
 
+ALLSAMPLES=c("25393","25394","25394_B4","25394_C9","25394_D5","25394_D7","25394_D11","25394_G3")
+
+ALLSAMPLES=c("25393")
 bin_size <- "100"
 
 for (i in 1:length(ALLSAMPLES)){
   SAMPLENAME = ALLSAMPLES[i]
   SAMPLEONJ = paste0("SLX-",SAMPLENAME,"_",bin_size)
-  ALLCELLS=file.path("Documents/sc_analysis/scAboslute-obj",paste0(SAMPLEONJ,'.rds')) 
-  OUTPUT= file.path("Documents/sc_analysis/post-scAbsolute", SAMPLEONJ)
+  ALLCELLS=file.path("../../Volumes/Fl/sc_analysis/scAboslute-obj",paste0(SAMPLEONJ,'.rds')) 
+  OUTPUT= file.path("../../Volumes/Fl/sc_analysis/post-scAbsolute", SAMPLEONJ)
   if (file.exists(paste0(OUTPUT,'/figures'))) {
     cat("Directory is already there!", paste0(OUTPUT,'/figures'), "\n")
   } else {
@@ -79,15 +83,16 @@ plot_dropouts <- function(object,CELL_POS_DROPOUT_PATH,CN_BINNED_PATH,CN_SEGMENT
   # Create the heatmap
   heatmap_plot <- ggplot(cell_pos_dropout, aes(x = Number, y = AZ, fill = total_dropout)) +
     geom_tile(color = "white") +
-    geom_text(aes(label = total_dropout), color = "black", size = 2) + # Add text labels
+    geom_text(aes(label = total_dropout), color = "black", size = 3) + # Add text labels
+    #scale_fill_gradient2(low = "lightgreen", mid = "lightyellow", high = "plum", midpoint = max(cell_pos_dropout$total_dropout)/2) +
     scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = max(cell_pos_dropout$total_dropout)/2) +
-    labs(title = paste0("Heatmap of total number of bins with 0 reads for each cell: ",SAMPLENAME), x = "Number", y = "AZ") +
+      labs(title = paste0("Heatmap of total number of bins with 0 reads for each cell: ",SAMPLENAME), x = "Number", y = "AZ") +
     theme_minimal() +
     theme(
-      text = element_text(size = 7), # Adjust the base font size
-      axis.title = element_text(size = 7), # Adjust axis title font size
-      axis.text = element_text(size = 7), # Adjust axis text font size
-      plot.title = element_text(size = 7) # Adjust plot title font size
+      text = element_text(size = 12), # Adjust the base font size
+      axis.title = element_text(size = 12), # Adjust axis title font size
+      axis.text = element_text(size = 12), # Adjust axis text font size
+      plot.title = element_text(size = 12) # Adjust plot title font size
     )
   
   # Print the heatmap to the console (optional)
@@ -101,15 +106,16 @@ plot_dropouts <- function(object,CELL_POS_DROPOUT_PATH,CN_BINNED_PATH,CN_SEGMENT
   # Create the heatmap
   heatmap_plot_passed <- ggplot(cell_pos_dropout, aes(x = Number, y = AZ, fill = total_dropout)) +
     geom_tile(color = "white") +
-    geom_text(aes(label = total_dropout), color = "black", size = 2) + # Add text labels
+    geom_text(aes(label = total_dropout), color = "black", size = 3) + # Add text labels
+    #scale_fill_gradient2(low = "lightgreen", mid = "lightyellow", high = "plum", midpoint = max(cell_pos_dropout$total_dropout)/2) +
     scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = max(cell_pos_dropout$total_dropout)/2) +
     labs(title = paste0("Heatmap of total number of bins with 0 reads for each cell: ",SAMPLENAME), x = "Number", y = "AZ") +
     theme_minimal() +
     theme(
-      text = element_text(size = 7), # Adjust the base font size
-      axis.title = element_text(size = 7), # Adjust axis title font size
-      axis.text = element_text(size = 7), # Adjust axis text font size
-      plot.title = element_text(size = 7) # Adjust plot title font size
+      text = element_text(size = 12), # Adjust the base font size
+      axis.title = element_text(size = 12), # Adjust axis title font size
+      axis.text = element_text(size = 12), # Adjust axis text font size
+      plot.title = element_text(size = 12) # Adjust plot title font size
     )
   
   # Print the heatmap to the console (optional)

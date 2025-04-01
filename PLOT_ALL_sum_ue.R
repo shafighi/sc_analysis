@@ -16,10 +16,11 @@ all_samples_ue <- list()
 
 # Loop to create sublists and add them to the main list
 for (i in 1:length(samples)) {
-  OUTPUT <- paste0('Documents/sc_analysis/scUnique-obj/SLX-',samples[i],'/')
+  OUTPUT <- paste0('../../Volumes/Fl/sc_analysis/scUnique-obj/SLX-',samples[i],'/')
   chromosomes <- c(paste0("chr", 1:22))
   UE_cells_PATH  <- paste0(OUTPUT,'unique_events_cells.rds')
   ue_df <- readRDS(UE_cells_PATH)
+  ue_df$sample=samples[i]
   ue_df_sum <- rowSums(ue_df[chromosomes])
   all_samples_ue[[i]] <- ue_df_sum
 }
@@ -83,4 +84,45 @@ p <- ggplot(df, aes(x = group, y = Value, fill = Category)) +
 # Save the plot
 ggsave("Documents/sc_analysis/all_samples_23july2024/ue_boxplot_ffpe_included.png", 
        plot = p, width = 14, height = 6, dpi = 300)
+
+
+
+
+# Create the plot with dots
+p1 <- ggplot(df, aes(x = group, y = Value, color = Category)) +
+  geom_jitter(width = 0.2, height = 0, alpha = 0.6, size = 1.5) + # Jittered dots
+  geom_boxplot(width = 0.7, outlier.size = 0.5, fill = "transparent", color = "black",alpha=0.3) +
+  theme_classic(base_size = 12) +
+  labs(title = "Unique events",
+       x = "Samples",
+       y = "Unique events in each sample") +
+  scale_color_manual(values = custom_colors) +
+  #scale_fill_brewer(palette = "Set1") +
+  scale_x_discrete(labels = function(x) sub("^[^_]+_", "", x),
+                   expand = expansion(mult = c(0.05, 0.05))) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
+    axis.text.y = element_text( size = 12),
+    legend.position = "right",
+    plot.title = element_text(hjust = 0.5, size = 12),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(fill = "white"),
+    legend.key.size = unit(0.5, "cm"),
+    legend.text = element_text(size = 9),
+    legend.title = element_text(size = 9),
+    axis.text.x.bottom = element_text(margin = margin(t = 0, r = 0, b = 15, l = 0))
+  ) +
+  # Add category labels below sample names
+  annotate("text", 
+           x = tapply(1:nlevels(df$group), df$Category[match(levels(df$group), df$group)], mean),
+           y = min(df$Value) - 0.1 * diff(range(df$Value)),
+           label = levels(df$Category),
+           size = 3,
+           fontface = "bold")
+
+p1
+# Save the plot
+ggsave("../../Volumes/Fl/sc_analysis/all_samples_23july2024/ue_dotplot_ffpe_included2.png", 
+       plot = p1, width = 14, height = 6, dpi = 300)
 

@@ -11,8 +11,8 @@ current_directory <- getwd()
 print(paste("Current Working Directory:", current_directory))
 
 
-get_summary_of_outliers <- function(object,OUTLIERS_CELLBASE_PATH,NON_OUTLIER_OBJ_PATH,OUTLIER_SUMMARY_PATH,SLX_value,UID_value,CELLCYCLE_PATH){
- 
+get_summary_of_outliers <- function(object,OUTLIERS_CELLBASE_PATH,NON_OUTLIER_OBJ_PATH,OUTLIER_SUMMARY_PATH,SLX_value,UID_value,NORMALS_PATH){
+  
   # Modify the data frame before passing it to the predict_replicating function
   modified_df <- Biobase::pData(object) %>%
     # Remove trailing underscore, if there is one
@@ -24,16 +24,9 @@ get_summary_of_outliers <- function(object,OUTLIERS_CELLBASE_PATH,NON_OUTLIER_OB
   df <- predict_replicating(
     modified_df,
     batch = "technology",
-    cutoff_value = 1,
+    cutoff_value = 1.5,
     iqr_value = 1.5
   )
-  
-  fig_cellcycle = ggplot(data = df) + geom_quasirandom(aes(x=SLX, y=cycling_activity,
-                                                               color=replicating), size=0.8, alpha=1.0) +
-    facet_wrap(~UID, scales = "free_x") + theme_pubclean()
-  fig_cellcycle
-  ggsave(paste0(CELLCYCLE_PATH), width = 3, height = 4)
-  
   
   if (length(unique(df$cellid))>1){
     all_cellids <- unique(df$cellid)
@@ -43,43 +36,47 @@ get_summary_of_outliers <- function(object,OUTLIERS_CELLBASE_PATH,NON_OUTLIER_OB
   }else{
     print("Problem: I could not find the column of names!")
   }
-
+  
   na_alpha_cells <- df[!complete.cases(df$hmm.alpha), ]
   df <- df[complete.cases(df$hmm.alpha), ]
-
+  
   rep_cells = df[df$replicating==TRUE,]$name
   condition_to_remove <- df$name %in% rep_cells
-
+  
   non_rep_object <- object[, !condition_to_remove]
   #iq = pre_scUnique_filtering(df[df$replicating==FALSE,],OUTPUT,mapd_cutoff=2,mapd_density_control= TRUE,gini_norm_cutoff=2,alpha_cutoff=2,alpha_hard_cutoff =0.05,gini_density_control=TRUE,rpc_cutoff=15)
-  mapd_cutoff=1.5
-  mapd_density_control= TRUE
-  gini_norm_cutoff= 1.5
-  alpha_cutoff=2
+  mapd_cutoff=2# 1.5
+  mapd_density_control= FALSE#TRUE
+  gini_norm_cutoff= 2#1.5
+  alpha_cutoff=1.5#2
   alpha_hard_cutoff =0.05
   gini_density_control=TRUE
-  rpc_cutoff=15
+  rpc_cutoff=25
   densityCutoff = 0.1
   cutoff_percentile=0.05
-
-  print(df)
-  print(sum(df$replicating==FALSE))
-  filtered_rpc <- df[df$replicating==FALSE,] %>% dplyr::filter(!replicating, rpc >= rpc_cutoff)
-
-  print(filtered_rpc)
+  
+  #print(df)
+  #print(sum(df$replicating==FALSE))
+  filtered_rpc <- df %>% dplyr::filter(!replicating, rpc >= rpc_cutoff)
+  
+  #print(filtered_rpc)
   filtered_mapd <- qc_mapd(filtered_rpc,cutoff_percentile=cutoff_percentile, cutoff_value = mapd_cutoff, symmetric=FALSE,
                            densityControl=mapd_density_control, densityCutoff=densityCutoff)
-  filtered_mapd$dmapd.outlier <- filtered_mapd$dmapd.outlier[,"outlier"]
-
+  #print(filtered_mapd$dmapd.outlier)
+  #filtered_mapd$dmapd.outlier <- filtered_mapd$dmapd.outlier[,"outlier"]
+  
   filtered_gini <- qc_gini_norm(filtered_mapd, cutoff_value = gini_norm_cutoff, 
                                 densityControl = gini_density_control, densityCutoff=densityCutoff)
   filtered_gini$dgini.outlier <- filtered_gini$dgini.outlier[,"outlier"]
-
-  iq = qc_alpha(filtered_gini, cutoff_percentile=cutoff_percentile, cutoff_value=alpha_cutoff, hard_cutoff = alpha_hard_cutoff)
-  iq$outlier = iq$dmapd.outlier | iq$dgini.outlier | iq$alpha.outlier
-
-  print(paste0("Out of ",nrow(df)," cells, ",sum((df$replicating)), " are replicating. Out of the ",sum((!df$replicating))," non-replicating cells, mapd outliers: ", sum(iq$dmapd.outlier)," gini outliers: ", sum(iq$dgini.outlier), ", and rpc outliers: " , sum(df[df$replicating==FALSE,]$rpc<15), ", and alpha outliers: ",sum(iq$alpha.outlier), " and cells that are outlier at least in one of these categories: ",sum(iq$outlier)))
   
+  iq = qc_alpha(filtered_gini, cutoff_percentile=cutoff_percentile, cutoff_value=alpha_cutoff, hard_cutoff = alpha_hard_cutoff)
+  
+
+  iq$outlier = iq$dmapd.outlier | iq$dgini.outlier | iq$alpha.outlier
+  
+  print(paste0("Out of ",nrow(df)," cells, ",sum((df$replicating)), " are replicating. Out of the ",sum((!df$replicating))," non-replicating cells, mapd outliers: ", sum(iq$dmapd.outlier)," gini outliers: ", sum(iq$dgini.outlier), ", and rpc outliers: " , sum(df[df$replicating==FALSE,]$rpc<rpc_cutoff), ", and alpha outliers: ",sum(iq$alpha.outlier), " and cells that are outlier at least in one of these categories: ",sum(iq$outlier)))
+  
+  print(iq$outlier)
   non_outlier_cells = iq[iq$outlier==FALSE,]$name
   condition_to_stay <- pData(non_rep_object)$name %in% non_outlier_cells
   
@@ -119,54 +116,49 @@ get_summary_of_outliers <- function(object,OUTLIERS_CELLBASE_PATH,NON_OUTLIER_OB
   
   # Print the results
   #print(metrics_df)
-  normals= metrics_df[metrics_df$percentage_2>90,]
-
+  normals= metrics_df[metrics_df$percentage_2>95,]
+  
   
   not_rep = df[df$replicating==FALSE,]
   rep_only = df[df$replicating==TRUE,]
-  not_rep[not_rep$rpc<15,]$cellid
+  not_rep[not_rep$rpc<rpc_cutoff,]$cellid
   
   
   #summary_df <- as.data.frame(t(c(nrow(df),sum((df$replicating)),sum(iq$dmapd.outlier),sum(iq$dgini.outlier),sum(df[df$replicating==FALSE,]$rpc<15),sum(iq$alpha.outlier),ncol(non_outlier_object@assayData$copynumber),nrow(normals))))
   #colnames(summary_df) <- c("Processed Cells", "Replicating", "Mapd Outliers", "Gini Outliers","RPC Outliers","Alpha Outliers","Good Quality Cells","Normal Cells")
-
   
-  summary_df <- as.data.frame(t(c(nrow(df),sum((df$replicating)),sum(rep_only$rpc<15),sum(df[df$replicating==FALSE,]$rpc<15),sum(iq$dmapd.outlier | iq$dgini.outlier | iq$alpha.outlier),ncol(non_outlier_object@assayData$copynumber),nrow(normals))))
+  
+  summary_df <- as.data.frame(t(c(nrow(df),sum((df$replicating)),sum(rep_only$rpc<rpc_cutoff),sum(df[df$replicating==FALSE,]$rpc<rpc_cutoff),sum(iq$dmapd.outlier | iq$dgini.outlier | iq$alpha.outlier),ncol(non_outlier_object@assayData$copynumber),nrow(normals))))
   colnames(summary_df) <- c("Processed Cells", "Replicating","Replicating & RPC","RPC Outliers","Alpha/Mapd/Gini","Good Quality Cells","Normal Cells")
   
-  
-
-  
   # Plot the table
-  table_plot <- tableGrob(summary_df)
+  #table_plot <- tableGrob(summary_df)
   
+  saveRDS(normals, NORMALS_PATH)
   saveRDS(summary_df, OUTLIER_SUMMARY_PATH)
-  
-  
-  
   
   # Create the summary dataframe
   if (length(unique(df$cellid))>1){
-  summary_df_outliers <- data.frame(cellid = all_cellids) %>%
-    mutate(
-      replicating = cellid %in% df[df$replicating,]$cellid,
-      dmap_outlier = cellid %in% iq[iq$dmapd.outlier,]$cellid,
-      gini_outlier = cellid %in% iq[iq$gini.outlier,]$cellid,
-      rpc_outlier_non_replicating = cellid %in% not_rep[not_rep$rpc<15,]$cellid,
-      rpc_outlier_replicating = cellid %in% rep_only[rep_only$rpc<15,]$cellid,
-      alpha_outlier = cellid %in% iq[iq$alpha.outlier,]$cellid,
-      na_alpha_outliers = cellid %in% na_alpha_cells$cellid,
-      gini_alpha_mapd = cellid %in% iq[iq$dmapd.outlier | iq$dgini.outlier | iq$alpha.outlier,]$cellid
-    ) %>%
-    mutate(across(-cellid, as.integer))
+    summary_df_outliers <- data.frame(cellid = all_cellids) %>%
+      mutate(
+        replicating = cellid %in% df[df$replicating,]$cellid,
+        dmap_outlier = cellid %in% iq[iq$dmapd.outlier,]$cellid,
+        gini_outlier = cellid %in% iq[iq$dgini.outlier,]$cellid,
+        rpc_outlier_non_replicating = cellid %in% not_rep[not_rep$rpc<rpc_cutoff,]$cellid,
+        rpc_outlier_replicating = cellid %in% rep_only[rep_only$rpc<rpc_cutoff,]$cellid,
+        alpha_outlier = cellid %in% iq[iq$alpha.outlier,]$cellid,
+        na_alpha_outliers = cellid %in% na_alpha_cells$cellid,
+        gini_alpha_mapd = cellid %in% iq[iq$dmapd.outlier | iq$dgini.outlier | iq$alpha.outlier,]$cellid
+      ) %>%
+      mutate(across(-cellid, as.integer))
   }else if((length(unique(df$name))>1)){
     summary_df_outliers <- data.frame(cellid = all_cellids) %>%
       mutate(
         replicating = cellid %in% df[df$replicating,]$name,
         dmap_outlier = cellid %in% iq[iq$dmapd.outlier,]$name,
-        gini_outlier = cellid %in% iq[iq$gini.outlier,]$name,
-        rpc_outlier_non_replicating = cellid %in% not_rep[not_rep$rpc<15,]$cellid,
-        rpc_outlier_replicating = cellid %in% rep_only[rep_only$rpc<15,]$cellid,
+        gini_outlier = cellid %in% iq[iq$dgini.outlier,]$name,
+        rpc_outlier_non_replicating = cellid %in% not_rep[not_rep$rpc<rpc_cutoff,]$cellid,
+        rpc_outlier_replicating = cellid %in% rep_only[rep_only$rpc<rpc_cutoff,]$cellid,
         alpha_outlier = cellid %in% iq[iq$alpha.outlier,]$name,
         na_alpha_outliers = cellid %in% na_alpha_cells$name,
         gini_alpha_mapd = cellid %in% iq[iq$dmapd.outlier | iq$dgini.outlier | iq$alpha.outlier,]$name
@@ -200,12 +192,29 @@ categories <- c("FFPE","FFPE","FFPE")
 ALLSAMPLES <- c("23964","24831","24832","24833","25146","25147","25149","24911","24912","24913","24915","24806","24807","24808")
 categories <- c("FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE")
 
+ALLSAMPLES <- c("23962","23963","23964","24831","24832","24833","25146","25147","25148","25149","24911","24912","24913","24914","24915","24806","24807","24808","24809")
+categories <- c("FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE")
+
+ALLSAMPLES=c("24809")
+categories <- c("FFPE")
+
+ALLSAMPLES <- c("23003","23303","23359","23526","23527","23528","23961","24077","24078","24130","24175","24441","24174","24173","24489","24007","23965","24490","24532")
+categories <- c("PEO1","PEO1","PEO1","PEO4","PEO23","PEO23","CIOV3","PEO4","CIOV6","PEO6","HCT116","CIOV6","HCT116\nBRCA2 -/-","PEO14","UWB1.289\nBRCA","PEO1","PEO1","UWB1.289","PEO1")
+
+ALLSAMPLES=c("24518","24491")
+categories <- c("PEO STOP","PEO MISSENSE")
 ALLSAMPLES=c("24757")
 categories <- c("Organoid")
+
+ALLSAMPLES=c("25393","25394","25394_B4","25394_C9","25394_D5","25394_D7","25394_D11","25394_G3")
+categories <- c("PEO1 parent","PEO1 children","PEO1 B4","PEO1 C9","PEO1 D5","PEO1 B7","PEO1 D11","PEO1 G3")
+ALLSAMPLES=c("25393")
+categories <- c("PEO1 parent")
 
 bin_size <- "100"
 
 for (i in 1:length(ALLSAMPLES)){
+  
   SAMPLENAME = ALLSAMPLES[i]
   SAMPLEONJ = paste0("SLX-",SAMPLENAME,"_",bin_size)
   ALLCELLS=file.path("../../Volumes/Fl/sc_analysis/scAboslute-obj",paste0(SAMPLEONJ,'.rds')) 
@@ -219,10 +228,29 @@ for (i in 1:length(ALLSAMPLES)){
   OUTLIERS_CELLBASE_PATH = paste0(OUTPUT,"/cellbased_outliers.rds")#summary_outliers.rds
   NON_OUTLIER_OBJ_PATH = paste0(OUTPUT,"/",SAMPLENAME,"_non_outlier.rds")
   OUTLIER_SUMMARY_PATH = paste0(OUTPUT,"/outlier_summary.rds")#summary_df.rds
-  CELLCYCLE_PATH = paste0(OUTPUT,"/cell_cycle.pdf")#summary_df.rds
+  NORMALS_PATH = paste0(OUTPUT,"/normals.rds")#summary_df.rds
   object = readRDS(ALLCELLS)
   SLX_value <- paste0("SLX-",SAMPLENAME)
   UID_value <- categories[i]
-  get_summary_of_outliers(object,OUTLIERS_CELLBASE_PATH,NON_OUTLIER_OBJ_PATH,OUTLIER_SUMMARY_PATH,SLX_value,UID_value,CELLCYCLE_PATH)
+  get_summary_of_outliers(object,OUTLIERS_CELLBASE_PATH,NON_OUTLIER_OBJ_PATH,OUTLIER_SUMMARY_PATH,SLX_value,UID_value,NORMALS_PATH)
+  
+
+  normal_rows = rownames(readRDS(NORMALS_PATH))
+  non_outlier_object <- readRDS(NON_OUTLIER_OBJ_PATH)
+  
+  #Biobase::pData(object)$IsNormal <- seq_len(nrow(df)) %in% normal_rows
+
+  
+  plotCopynumberHeatmap(non_outlier_object,file =paste0(OUTPUT,"/heatmap_clustered.pdf") ,cluster_rows = "ploidy", row_split=NULL,
+                        cutoff=10, show_unobserved_states=TRUE,
+                        har=NULL, useCopynumber=TRUE,
+                        show_cell_names=FALSE, abbreviate_cell_names=TRUE, show_chromosome_names=FALSE,
+                        use_cell_names=NULL, fontsize_row=9, fontsize_col=9, fontsize_chr=12,
+                        fontsize_leg_title=18, fontsize_leg_label=14, 
+                        row_title_gp=13, column_title_gp=13,
+                        column_title="", bottom_annotation=NULL,
+                        show_heatmap_legend=TRUE, scale_copynumber=1.0,
+                        raster_device="tiff",
+                        colorMap="MSK",row_title=SAMPLENAME)
 }
 

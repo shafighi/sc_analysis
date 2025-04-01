@@ -6,9 +6,9 @@ samples <- c("23003","23303","23359","23526","23527","23528","23961","24077","24
 category <- c("PEO1","PEO1","PEO1","PEO4","PEO23","PEO23","CIOV3","PEO4","CIOV6","PEO6","HCT116","CIOV6","PEO1","HCT116\nBRCA2 -/-","PEO14","UWB1.289\nBRCA","PEO1","PEO1","UWB1.289")
 category_order <- c("PEO1", "PEO4","PEO6","CIOV3","CIOV6","PEO14","PEO23","HCT116","HCT116\nBRCA2 -/-","UWB1.289","UWB1.289\nBRCA")  # Adjust this to your preferred order
 
-samples <- c("23003","23303","23359","23526","23527","23528","23961","24077","24078","24130","24175","24441","24532","24174","24173","24489","24007","23965","24490","24831","24832","24833","25146","25147","25148","25149")
-category <- c("PEO1","PEO1","PEO1","PEO4","PEO23","PEO23","CIOV3","PEO4","CIOV6","PEO6","HCT116","CIOV6","PEO1","HCT116\nBRCA2 -/-","PEO14","UWB1.289\nBRCA","PEO1","PEO1","UWB1.289","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE")
-category_order <- c("PEO1", "PEO4","PEO6","CIOV3","CIOV6","PEO14","PEO23","HCT116","HCT116\nBRCA2 -/-","UWB1.289","UWB1.289\nBRCA","FFPE")  # Adjust this to your preferred order
+samples <- c("23003","23303","23359","23526","24077","24130","24532","24007","23965")
+category <- c("PEO1","PEO1","PEO1","PEO4","PEO4","PEO6","PEO1","PEO1","PEO1")
+category_order <- c("PEO1", "PEO4","PEO6")  # Adjust this to your preferred order
 
 
 
@@ -128,7 +128,7 @@ ggsave("Documents/sc_analysis/all_samples_23july2024/ue_lenght_boxplot_ffpe_nonz
 
 
 
-threshold=100
+threshold=250
 # Create the plot
 p <- ggplot(df[df$Value<threshold,], aes(x = group, y = Value, fill = Category)) +
   geom_boxplot(width = 0.7, outlier.size = 0.5) +
@@ -165,12 +165,12 @@ ggsave("Documents/sc_analysis/all_samples_23july2024/ue_lenght_boxplot_ffpe_incl
        plot = p, width = 14, height = 6, dpi = 300)
 
 
-p <- ggplot(df[df$Value>threshold,], aes(x = group, y = Value, fill = Category)) +
-  geom_boxplot(width = 0.7, outlier.size = 0.5) +
+p <- ggplot(df[df$Value<threshold,], aes(x = group, y = Value, fill = Category)) +
+  geom_boxplot(width = 0.7, outlier.size = 0.05) +
   theme_classic(base_size = 7) +
   labs(title = "Unique events",
        x = "Samples",
-       y = "Unique events in each sample") +
+       y = "Length of Unique Events per Cell") +
   scale_fill_manual(values = custom_colors) +
   #scale_fill_brewer(palette = "Set1") +
   scale_x_discrete(labels = function(x) sub("^[^_]+_", "", x),
@@ -190,12 +190,11 @@ p <- ggplot(df[df$Value>threshold,], aes(x = group, y = Value, fill = Category))
   # Add category labels below sample names
   annotate("text", 
            x = tapply(1:nlevels(df$group), df$Category[match(levels(df$group), df$group)], mean),
-           y = min(df$Value) - 0.1 * diff(range(df$Value)),
+           y = min(df$Value) - 0.01 * diff(range(df$Value)),
            label = levels(df$Category),
-           size = 3,
-           fontface = "bold")
+           size = 1.5)
 
 # Save the plot
-ggsave("Documents/sc_analysis/all_samples_23july2024/ue_lenght_boxplot_ffpe_included_big_500.png", 
-       plot = p, width = 14, height = 6, dpi = 300)
+ggsave("Documents/sc_analysis/all_samples_23july2024/ue_lenght_PEO.png", 
+       plot = p, width = 3, height = 3, dpi = 300)
 

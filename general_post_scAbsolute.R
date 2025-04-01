@@ -17,14 +17,30 @@ samples <- c("24831", "24832" ,"24833")
 samples <- c("25147","25148")
 samples <- c("25149")
 samples <- c("24911","24912","24913")
+samples <- c("23964","24831","24832","24833","25146","25147","25149","24911","24912","24913","24915","24806","24807","24808","24809")
+categories <- c("FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE")
+
+samples <- c("23962","23963","23964","24831","24832","24833","25146","25147","25148","25149","24911","24912","24913","24914","24915","24806","24807","24808","24809")
+categories <- c("FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE","FFPE")
+
+
+samples <- c("24757")
+categories <- c("Organoid")
+
+
+samples=c("25393","25394","25394_B4","25394_C9","25394_D5","25394_D7","25394_D11","25394_G3")
+categories <- c("PEO1 parent","PEO1 children","PEO1 B4","PEO1 C9","PEO1 D5","PEO1 B7","PEO1 D11","PEO1 G3")
+
+samples=c("25393","25394")
+categories <- c("PEO1 parent","PEO1 children")
 bin_size <- "100"
 
-
+s=2
 for (s in 1:length(samples)){
   print(paste0("SAMPLE NAME: ", samples[s]))
   print("------------------ SETTING FILE NAMES ------------------")
-  OUTPUT <- paste0('Documents/sc_analysis/scUnique-obj/scAbsolute/SLX-',samples[s],'/')
-  OBJ_PATH <- paste0('Documents/sc_analysis/scAboslute-obj/SLX-',samples[s],"_100.rds")
+  OUTPUT <- paste0('../../Volumes/Fl/sc_analysis/scUnique-obj/scAbsolute/SLX-',samples[s],'/')
+  OBJ_PATH <- paste0('../../Volumes/Fl/sc_analysis/scAboslute-obj/SLX-',samples[s],"_100.rds")
   if (file.exists(OUTPUT)) {
     cat("Directory is already there!", OUTPUT, "\n")
   } else {
@@ -36,7 +52,7 @@ for (s in 1:length(samples)){
   CN_PATH <- paste0(OUTPUT,'cn_',samples[s],'_',bin_size,'.rds')
   CN_BINNED_PATH <- paste0(OUTPUT,'cn_',samples[s],'_binned_',bin_size,'.rds')
   FEATURE_PATH = file.path(OUTPUT, paste0("cn_",samples[s],'_',bin_size,"_features.rds"))
-  HEATMAP_PATH <- paste0(OUTPUT,"scAbsolute_copynumber.pdf")
+  HEATMAP_PATH <- paste0(OUTPUT,samples[s],"_scAbsolute_copynumber.pdf")
   USEDREAD_RPC_PATH <- paste0(OUTPUT,"scUnique_rpc_usedreads_alpha_replicatings.jpg")
   USED_TOTAL_READ_PATH <- paste0(OUTPUT,"scUnique_usedreads_totalreads_alpha_replicatings.jpg")
   
@@ -51,6 +67,8 @@ for (s in 1:length(samples)){
   UE_FREQ_PATH <- paste0(OUTPUT,"ue_freq.pdf")
   UE_HEATMAP_PATH <- paste0(OUTPUT,"ue_heatmap.pdf")
   UE_CHANGES_PATH <- paste0(OUTPUT,"ue_changes.pdf")
+  ALPHA_HIST_PATH <- paste0(OUTPUT,"alpha_hist.pdf")
+  ALPHA_HIST_PATH2 <- paste0(OUTPUT,"alpha_hist2.pdf")
   
   
   
@@ -101,8 +119,27 @@ for (s in 1:length(samples)){
   
   
   
+  print("------------------ ALPHA ------------------")
   
   
+  pdf(ALPHA_HIST_PATH2, width = 3.5, height = 3, pointsize=7)
+  cutoff_value <- 1.5
+  x <- na.omit(object_df$hmm.alpha)
+  hist(x, breaks = 60, col = "lightblue", main = "Filtering Based on Alpha Distribution",xlab=expression(alpha))
+  #abline(v = mean(x), col = "blue", lwd = 1)
+  #text(mean(x), par("usr")[4], labels = sprintf("mean(x).   %.2f", mean(x)),
+  #     pos = 2, offset = 0.5, col = "blue", srt = 90, cex = 0.7)
+  condition_region <- x [log(x) > mean(log(x)) + (cutoff_value * sd(log(x)))]
+  #abline(v = exp(mean(log(x)) + (cutoff_value * sd(log(x)))), col = "red", lwd = 1)
+  #text(exp(mean(log(x)) + (cutoff_value * sd(log(x)))), par("usr")[4], labels = sprintf("exp(mean(log(x)) + (cutoff_value * sd(log(x)))).   %.2f", exp(mean(log(x)) + (cutoff_value * sd(log(x))))),
+  #     pos = 2, offset = 0.5, col = "red", srt = 90, cex = 0.7)
+  #abline(v = exp(mean(log(x)) + (sd(log(x)))), col = "green", lwd = 1)
+  #text(exp(mean(log(x)) + (sd(log(x)))), par("usr")[4], labels = sprintf("exp(mean(log(x)) + (sd(log(x)))).   %.2f", exp(mean(log(x)) + (sd(log(x))))),
+  #     pos = 2, offset = 0.5, col = "green", srt = 90, cex = 0.7)
+  hist(condition_region, breaks = 30, main = "Alpha Distribution", col = rgb(1, 0, 0, 0.5), add = TRUE,alpha=0.5)
+  #legend("topright", legend = c("Data", "Mean", "Filtering Region"),
+  #       fill = c("lightblue", "blue", rgb(1, 0, 0, 0.5)), border = NA)
+  dev.off()
   
   
   print("------------------ EXTRACTING FEATURES FROM COPYNUMBER PROFILE ------------------")
@@ -128,7 +165,20 @@ for (s in 1:length(samples)){
               gp = gpar(col = col[levels[1]]))
   }
   
-  plotCopynumberHeatmap(object,file = HEATMAP_PATH,show_chromosome_names=TRUE)
+  plotCopynumberHeatmap(object,file =HEATMAP_PATH ,cluster_rows = FALSE, row_split=NULL,
+                        cutoff=10, show_unobserved_states=TRUE,
+                        har=NULL, useCopynumber=TRUE,
+                        show_cell_names=FALSE, abbreviate_cell_names=TRUE, show_chromosome_names=FALSE,
+                        use_cell_names=NULL, fontsize_row=9, fontsize_col=9, fontsize_chr=12,
+                        fontsize_leg_title=18, fontsize_leg_label=14, 
+                        row_title_gp=13, column_title_gp=13,
+                        column_title="", bottom_annotation=NULL,
+                        show_heatmap_legend=TRUE, scale_copynumber=1.0,
+                        raster_device="tiff",
+                        colorMap="MSK",row_title=paste0(categories[s],": ",samples[s]))
+  
+
+  
   ggplot(object_df, aes(used.reads, rpc, color = alpha)) +
     geom_point(size=1) + 
     scale_color_viridis_c() +
@@ -169,6 +219,16 @@ for (s in 1:length(samples)){
   dev.off()
   
   
+  # Create the histogram
+  histogram <- ggplot(data = object_df, aes(x =alpha)) +
+    geom_histogram(binwidth = 0.001, fill = "skyblue", color = "black", aes(y=..count..)) +
+    labs(x = expression(alpha), y = "Frequency", title = "Histogram of \u03b1") +
+    theme_minimal()
+  # Save the plot as a PDF
+  pdf(ALPHA_HIST_PATH)
+  print(histogram)
+  dev.off()
+  
   print("------------------ PLOTTING USED READS, RPC and PLOIDY ------------------")
   
   ggplot(object_df, aes(used.reads, ploidy, color = rpc)) +
@@ -182,7 +242,7 @@ for (s in 1:length(samples)){
          x = "Used Reads",
          y = "Ploidy",
          color="RPC")
-  ggsave(paste0(OUTPUT,"/scAbsolute/rpc_usedreads_ploidy_2.jpg"), width = 8, height = 6)
+  ggsave(paste0(OUTPUT,"rpc_usedreads_ploidy_2.jpg"), width = 8, height = 6)
   
   
   print("------------------ PLOTTING DROPOUT ------------------")

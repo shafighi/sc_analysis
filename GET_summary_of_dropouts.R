@@ -191,13 +191,18 @@ ALLSAMPLES=c("24518","24491")
 
 ALLSAMPLES=c("24911","24912","24913")
 
+ALLSAMPLES=c("24757")
+
+ALLSAMPLES=c("25393","25394","25394_B4","25394_C9","25394_D5","25394_D7","25394_D11","25394_G3")
+categories <- c("PEO1 parent","PEO1 children","PEO1 B4","PEO1 C9","PEO1 D5","PEO1 B7","PEO1 D11","PEO1 G3")
+
 bin_size <- "100"
 
 for (i in 1:length(ALLSAMPLES)){
   SAMPLENAME = ALLSAMPLES[i]
   SAMPLEONJ = paste0("SLX-",SAMPLENAME,"_",bin_size)
-  ALLCELLS=file.path("Documents/sc_analysis/scAboslute-obj",paste0(SAMPLEONJ,'.rds')) 
-  OUTPUT= file.path("Documents/sc_analysis/post-scAbsolute", SAMPLEONJ)
+  ALLCELLS=file.path("../../Volumes/Fl/sc_analysis/scAboslute-obj",paste0(SAMPLEONJ,'.rds')) 
+  OUTPUT= file.path("../../Volumes/Fl/sc_analysis/post-scAbsolute", SAMPLEONJ)
   CELL_POS_DROPOUT_PATH <- paste0(OUTPUT,'/cell_pos_dropout.rds')
   CN_BINNED_PATH <- paste0(OUTPUT,'/cn_binned.rds')
   CN_SEGMENTED_PATH <- paste0(OUTPUT,'/cn_segmented.rds')
