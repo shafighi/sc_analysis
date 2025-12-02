@@ -1,12 +1,13 @@
-library(future)
 
-scUnique = "/home/schnei01/scUnique"
-BASEDIR="/home/schnei01/scAbsolute"
-source(file.path(BASEDIR, "R/load_dependencies.R"))
+
+#scUnique = "/home/schnei01/scUnique"
+#BASEDIR="/home/schnei01/scAbsolute"
+#source(file.path(BASEDIR, "R/load_dependencies.R"))
 #load_dependencies(BASEDIR)
-library(ggplot2)
-library(patchwork)
-library(dplyr)
+library(future, quietly = TRUE)
+library(ggplot2, quietly = TRUE)
+library(patchwork, quietly = TRUE)
+library(dplyr, quietly = TRUE)
 library(QDNAseq, quietly = TRUE)
 library(magrittr, quietly = TRUE)
 library(dplyr, quietly = TRUE)
@@ -15,13 +16,11 @@ library(ggplot2, quietly = TRUE)
 library(ggbeeswarm, quietly = TRUE)
 library("ggpubr", quietly = TRUE)
 library(robustbase, quietly = TRUE)
-library(readxl)
-library(dplyr)
+library(readxl, quietly = TRUE)
+library(dplyr, quietly = TRUE)
 
-source(file.path(scUnique,"R/core.R"))
-source(file.path(BASEDIR, "R/core.R"))
-source(file.path(BASEDIR, "R/visualization.R"))
-source(file.path(scUnique, "R/core.R"))
+source(file.path("R/core.R"))
+source(file.path( "R/visualization_helpers.R"))
 
 
 
@@ -314,52 +313,3 @@ plot_heatmap_t <- function(object,OUTPUT,SAMPLENAME,post_name,row_cluster){
            number_color="black",labels_row = "")
   dev.off()
 }
-
-# generic kernel density based filter function
-kde2d_filter <- function(x, y, q = 0.05, n = 200, plt = FALSE,output_path,xlab, ylab) {
-  stopifnot(length(x) == length(y))
-  z <- MASS::kde2d(x, y, n = n)
-  cuts <- data.frame(
-    x = cut(x, seq(z$x[1], z$x[n], length.out = n + 1)),
-    y = cut(y, seq(z$y[1], z$y[n], length.out = n + 1)),
-    point_number = seq_along(x)
-  )
-  dens <- expand.grid(x = levels(cuts$x), y = levels(cuts$y))
-  dens$z <- as.vector(z$z)
-  dens <- merge(cuts, dens, sort = FALSE, all.x = TRUE)
-  dens$z[is.na(dens$z)] <- 0
-  pts <- dens$point_number[dens$z >= quantile(dens$z, prob = q)]
-  
-  if (plt) {
-    
-    # Set the desired size
-    width <- 3  # Width in inches
-    height <- 3  # Height in inches
-    
-    # Open a PDF file for plotting
-    pdf(output_path, width = width, height = height, pointsize=7)
-    
-    par(mar = c(5, 4, 4, 2) + 0.1)  # Adjust margins for better appearance
-    plot(x, y, col = 'red', cex = 1, pch = 16, xlab = xlab, ylab = ylab, main = paste0("Filtering based on ",ylab))
-    points(x[pts], y[pts], pch = 16, col = 'green', cex = 1, bty = "n",lwd=0)  # Set bty to "n" to remove the box
-    contour(z, drawlabels = FALSE, add = TRUE, lwd = 1, nlevels = 7, 
-            col = rev(RColorBrewer::brewer.pal(10, "RdYlBu")))
-    # Add legend
-    legend("topright", legend = c("Original", "Outliers"), col = c("green", "red"), pch = 16, cex = 1)
-    
-    dev.off()
-  }
-  
-  result_df <- data.frame(
-    x = x,
-    y = y,
-    outlier = ifelse(seq_along(x) %in% pts, FALSE, TRUE)
-  )
-  
-  #invisible(pts)
-  res=rep(TRUE, length(x))
-  res[pts] = FALSE
-  #invisible(res)
-  invisible(result_df)
-}
-
