@@ -1,14 +1,30 @@
+get_summary_of_outliers <- function(object,
+                                    SLX = NULL,
+                                    UID = NULL,
+                                    rpc_cutoff = 25,
+                                    mapd_cutoff = 2,
+                                    mapd_density_control = FALSE,
+                                    gini_norm_cutoff = 2,
+                                    alpha_cutoff = 1.5,
+                                    alpha_hard_cutoff = 0.05,
+                                    gini_density_control = TRUE,
+                                    densityCutoff = 0.1,
+                                    cutoff_percentile = 0.05,
+                                    save_results = FALSE,
+                                    outlier_cellbase_path = NULL,
+                                    non_outlier_obj_path = NULL,
+                                    outlier_summary_path = NULL,
+                                    normals_path = NULL) {
 
-get_summary_of_outliers <- function(object,OUTLIERS_CELLBASE_PATH,NON_OUTLIER_OBJ_PATH,OUTLIER_SUMMARY_PATH,SLX_value,UID_value,NORMALS_PATH){
-  
-  # Modify the data frame before passing it to the predict_replicating function
+  # Build phenotype dataframe for QC functions
   modified_df <- Biobase::pData(object) %>%
     # Remove trailing underscore, if there is one
-    mutate(name = sub("_[0-9]*$", "", name)) %>%
-    tidyr::separate(name, into = c("TECHNOLOGY", "cellid"), sep = "_(?=[^_]+$)", remove = FALSE) %>%
-    mutate(SLX = SLX_value, UID = UID_value)
-  
-  # Pass the modified data frame to predict_replicating
+    dplyr::mutate(name = sub("_[0-9]*$", "", name)) %>%
+    tidyr::separate(name, into = c("TECHNOLOGY", "cellid"), sep = "_(?=[^_]+$)", remove = FALSE)
+  if (!is.null(SLX)) modified_df$SLX <- SLX
+  if (!is.null(UID)) modified_df$UID <- UID
+
+  # Pass the modified data frame to predict_replicating (uses batch grouping internally)
   df <- predict_replicating(
     modified_df,
     batch = "technology",
@@ -33,43 +49,40 @@ get_summary_of_outliers <- function(object,OUTLIERS_CELLBASE_PATH,NON_OUTLIER_OB
   
   non_rep_object <- object[, !condition_to_remove]
   #iq = pre_scUnique_filtering(df[df$replicating==FALSE,],OUTPUT,mapd_cutoff=2,mapd_density_control= TRUE,gini_norm_cutoff=2,alpha_cutoff=2,alpha_hard_cutoff =0.05,gini_density_control=TRUE,rpc_cutoff=15)
-  mapd_cutoff=2# 1.5
-  mapd_density_control= FALSE#TRUE
-  gini_norm_cutoff= 2#1.5
-  alpha_cutoff=1.5#2
-  alpha_hard_cutoff =0.05
-  gini_density_control=TRUE
-  rpc_cutoff=25
-  densityCutoff = 0.1
-  cutoff_percentile=0.05
+  # use parameters passed to the function (defaults above)
   
   #print(df)
   #print(sum(df$replicating==FALSE))
   filtered_rpc <- df %>% dplyr::filter(!replicating, rpc >= rpc_cutoff)
   
   #print(filtered_rpc)
-  filtered_mapd <- qc_mapd(filtered_rpc,cutoff_percentile=cutoff_percentile, cutoff_value = mapd_cutoff, symmetric=FALSE,
-                           densityControl=mapd_density_control, densityCutoff=densityCutoff)
+  filtered_mapd <- qc_mapd(filtered_rpc, cutoff_percentile = cutoff_percentile, cutoff_value = mapd_cutoff, symmetric = FALSE,
+                           densityControl = mapd_density_control, densityCutoff = densityCutoff)
   #print(filtered_mapd$dmapd.outlier)
   #filtered_mapd$dmapd.outlier <- filtered_mapd$dmapd.outlier[,"outlier"]
   
-  filtered_gini <- qc_gini_norm(filtered_mapd, cutoff_value = gini_norm_cutoff, 
-                                densityControl = gini_density_control, densityCutoff=densityCutoff)
-  filtered_gini$dgini.outlier <- filtered_gini$dgini.outlier[,"outlier"]
-  
-  iq = qc_alpha(filtered_gini, cutoff_percentile=cutoff_percentile, cutoff_value=alpha_cutoff, hard_cutoff = alpha_hard_cutoff)
+  filtered_gini <- qc_gini_norm(filtered_mapd, cutoff_value = gini_norm_cutoff,
+                                densityControl = gini_density_control, densityCutoff = densityCutoff)
+  # qc_gini_norm returns a data.frame with a dgini.outlier column (data.frame with outlier), normalize it
+  if (is.data.frame(filtered_gini$dgini.outlier)) filtered_gini$dgini.outlier <- filtered_gini$dgini.outlier[, "outlier"]
+
+  iq <- qc_alpha(filtered_gini, cutoff_percentile = cutoff_percentile, cutoff_value = alpha_cutoff, hard_cutoff = alpha_hard_cutoff)
   
 
-  iq$outlier = iq$dmapd.outlier | iq$dgini.outlier | iq$alpha.outlier
+  # create logical outlier column (flatten data.frame columns if necessary)
+  if (is.data.frame(iq$dmapd.outlier)) dmap_flag <- iq$dmapd.outlier[, 1] else dmap_flag <- iq$dmapd.outlier
+  if (is.data.frame(iq$dgini.outlier)) dgini_flag <- iq$dgini.outlier[, 1] else dgini_flag <- iq$dgini.outlier
+  if (is.data.frame(iq$alpha.outlier)) alpha_flag <- iq$alpha.outlier[, 1] else alpha_flag <- iq$alpha.outlier
+  iq$outlier <- dmap_flag | dgini_flag | alpha_flag
   
   print(paste0("Out of ",nrow(df)," cells, ",sum((df$replicating)), " are replicating. Out of the ",sum((!df$replicating))," non-replicating cells, mapd outliers: ", sum(iq$dmapd.outlier)," gini outliers: ", sum(iq$dgini.outlier), ", and rpc outliers: " , sum(df[df$replicating==FALSE,]$rpc<rpc_cutoff), ", and alpha outliers: ",sum(iq$alpha.outlier), " and cells that are outlier at least in one of these categories: ",sum(iq$outlier)))
   
   print(iq$outlier)
-  non_outlier_cells = iq[iq$outlier==FALSE,]$name
-  condition_to_stay <- pData(non_rep_object)$name %in% non_outlier_cells
-  
+  non_outlier_cells <- iq[!iq$outlier, ]$name
+  condition_to_stay <- Biobase::pData(non_rep_object)$name %in% non_outlier_cells
+
   non_outlier_object <- non_rep_object[, condition_to_stay]
-  saveRDS(non_outlier_object,NON_OUTLIER_OBJ_PATH)
+  if (isTRUE(save_results) && !is.null(non_outlier_obj_path)) saveRDS(non_outlier_object, non_outlier_obj_path)
   
   
   print("------------------ NORMAL CELLS ------------------")
@@ -122,8 +135,8 @@ get_summary_of_outliers <- function(object,OUTLIERS_CELLBASE_PATH,NON_OUTLIER_OB
   # Plot the table
   #table_plot <- tableGrob(summary_df)
   
-  saveRDS(normals, NORMALS_PATH)
-  saveRDS(summary_df, OUTLIER_SUMMARY_PATH)
+  if (isTRUE(save_results) && !is.null(normals_path)) saveRDS(normals, normals_path)
+  if (isTRUE(save_results) && !is.null(outlier_summary_path)) saveRDS(summary_df, outlier_summary_path)
   
   # Create the summary dataframe
   if (length(unique(df$cellid))>1){
@@ -159,7 +172,17 @@ get_summary_of_outliers <- function(object,OUTLIERS_CELLBASE_PATH,NON_OUTLIER_OB
   summary_counts <- summary_df_outliers %>%
     summarise(across(-cellid, sum))
   
-  print(summary_counts)
-  saveRDS(summary_df_outliers, OUTLIERS_CELLBASE_PATH)
-  
+  # optionally persist the cell-based outlier table
+  if (isTRUE(save_results) && !is.null(outlier_cellbase_path)) saveRDS(summary_df_outliers, outlier_cellbase_path)
+
+  # return results as a list (pure function unless save_results requested)
+  return(list(
+    df = df,
+    iq = iq,
+    summary_df = summary_df,
+    summary_df_outliers = summary_df_outliers,
+    non_outlier_object = non_outlier_object,
+    normals = normals,
+    summary_counts = summary_counts
+  ))
 }

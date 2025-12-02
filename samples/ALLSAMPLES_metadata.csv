@@ -1,0 +1,23 @@
+sample,Cell line,feature1,feature2
+23003,PEO1,HRD,Cisplatin sensitive
+23303,PEO1,HRD,Cisplatin sensitive
+23359,PEO1,HRD,Cisplatin sensitive
+23526,PEO4,HRP,Cisplatin Resistant
+23527,PEO23,HRP,Cisplatin Resistant
+23528,PEO23,HRP,Cisplatin Resistant
+23961,CIOV3,HRP,-
+24077,PEO4,HRP,Cisplatin Resistant
+24078,CIOV6,HRD,-
+24130,PEO6,HRP,Cisplatin Resistant
+24175,HCT116,HRP,BRCA2 WT
+24441,CIOV6,HRD,-
+24532,PEO1,HRD,Cisplatin Sensitive
+24174,"HCT116 BRCA2 -/-",HRD,BRCA2 null
+24173,PEO14,HRD,Cisplatin Sensitive
+24489,"UWB1.289 BRCA",HRP,BRCA1 restored
+24007,PEO1,HRD,Cisplatin Sensitive
+23965,PEO1,HRD,Cisplatin Sensitive
+24490,UWB1.289,HRD,BCRA1 mutation
+24491,"PEO1 MISSENSE",HRD,-
+24518,"PEO1 STOP",HRD,-
+24835,PEO1,HRD,Cisplatin Sensitive
