@@ -9,18 +9,16 @@ This document describes the pipeline for generating and visualizing outlier summ
 │                           OUTLIER SUMMARY PIPELINE                          │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-Step 1: Prepare Sample CSV
+Step 1: Prepare Sample CSV + Generate Outlier Summaries (per-sample RDS files)
          ↓
-Step 2: Generate Outlier Summaries (per-sample RDS files)
+Step 2: Combine Summaries with Metadata (aggregated CSV)
          ↓
-Step 3: Combine Summaries with Metadata (aggregated CSV)
-         ↓
-Step 4: Visualize Results (plots & figures)
+Step 3: Visualize Results (plots & figures)
 ```
 
 ---
 
-## Step 1: Prepare Sample Manifest CSV
+## Step 1: Prepare Sample Manifest CSV & Generate Outlier Summaries
 
 Create a CSV file listing the samples you want to process. Place it in `samples/` folder.
 
@@ -74,7 +72,7 @@ Rscript scripts/01_generate_outlier_summaries.R <samples_csv> [obj_base] [out_ba
 
 ---
 
-## Step 3: Combine Summaries with Metadata
+## Step 2: Combine Summaries with Metadata
 
 **Script:** `scripts/02_combine_outlier_summaries.R`
 
@@ -88,7 +86,7 @@ Rscript scripts/02_combine_outlier_summaries.R <samples_csv> <out_base> <obj_bas
 **Arguments:**
 1. `samples_csv` - Path to sample manifest CSV (with metadata columns)
 2. `out_base` - Output directory for combined CSV
-3. `obj_base` - Directory containing per-sample output folders (from Step 2)
+3. `obj_base` - Directory containing per-sample output folders (from Step 1)
 4. `bin_size` - (Optional) Bin size used in processing (default: `100`)
 
 **Output:**
@@ -97,23 +95,19 @@ Rscript scripts/02_combine_outlier_summaries.R <samples_csv> <out_base> <obj_bas
 
 ---
 
-## Step 4: Visualize Results
+## Step 3: Visualize Results
 
-There are two visualization options:
-
-### Option A: General Visualization (Recommended)
-
-**Script:** `scripts/04_visualize_summary_general.R`
+**Script:** `scripts/03_visualize_summary.R`
 
 A flexible, general-purpose visualizer that works with any summary CSV. Not specific to any sample type (FFPE, cell lines, etc.).
 
 **Usage:**
 ```bash
-Rscript scripts/04_visualize_summary_general.R <input_csv> <out_base> [group_col] [label_col]
+Rscript scripts/03_visualize_summary.R <input_csv> <out_base> [group_col] [label_col]
 ```
 
 **Arguments:**
-1. `input_csv` - Path to combined outlier summary CSV (from Step 3)
+1. `input_csv` - Path to combined outlier summary CSV (from Step 2)
 2. `out_base` - Output directory for plots
 3. `group_col` - (Optional) Column name for grouping/coloring (e.g., `feature1`, `category`)
 4. `label_col` - (Optional) Column name for x-axis labels (e.g., `Sample`, `Cell line`)
@@ -131,25 +125,20 @@ Rscript scripts/04_visualize_summary_general.R <input_csv> <out_base> [group_col
 **Example:**
 ```bash
 # Basic usage
-Rscript scripts/04_visualize_summary_general.R results/summary.csv results/
+Rscript scripts/03_visualize_summary.R results/summary.csv results/
 
 # With grouping by HRD/HRP status
-Rscript scripts/04_visualize_summary_general.R results/summary.csv results/ feature1 Sample
+Rscript scripts/03_visualize_summary.R results/summary.csv results/ feature1 Sample
 
 # With custom label column
-Rscript scripts/04_visualize_summary_general.R results/summary.csv results/ category "Cell line"
+Rscript scripts/03_visualize_summary.R results/summary.csv results/ category "Cell line"
 ```
 
-### Option B: Legacy Visualization (FFPE/Cell line specific)
+### Legacy Visualization (FFPE/Cell line specific)
 
-**Script:** `scripts/03_visualize_outlier_summary.R`
+**Script:** `scripts/legacy_visualize_ffpe_cellline.R`
 
-This script is specific to FFPE and cell line comparisons. Use Option A for general purposes.
-
-**Usage:**
-```bash
-Rscript scripts/03_visualize_outlier_summary.R <combined_csv> <ffpe_csv> <out_base>
-```
+This script is specific to FFPE and cell line comparisons. Use the general script above for most purposes.
 
 ---
 
@@ -163,15 +152,15 @@ cp samples/ALLSAMPLES_metadata.csv samples/my_analysis.csv
 # 2. Generate outlier summaries for each sample
 Rscript scripts/01_generate_outlier_summaries.R samples/my_analysis.csv
 
-# 3. Combine all summaries into one table with metadata
+# 2. Combine all summaries into one table with metadata
 Rscript scripts/02_combine_outlier_summaries.R \
     samples/my_analysis.csv \
     /Volumes/Fl/sc_analysis/results \
     /Volumes/Fl/sc_analysis/post-scAbsolute \
     100
 
-# 4. Generate visualization plots (general)
-Rscript scripts/04_visualize_summary_general.R \
+# 3. Generate visualization plots
+Rscript scripts/03_visualize_summary.R \
     /Volumes/Fl/sc_analysis/results/outlier_summary_table_meta_combined.csv \
     /Volumes/Fl/sc_analysis/results \
     feature1 \
@@ -198,7 +187,7 @@ Rscript scripts/02_combine_outlier_summaries.R \
     100
 
 # Step 3: Generate visualization plots
-Rscript scripts/04_visualize_summary_general.R \
+Rscript scripts/03_visualize_summary.R \
     /Volumes/Fl/sc_analysis/all_samples_23july2024/sample_test/outlier_summary_table_meta_combined.csv \
     /Volumes/Fl/sc_analysis/all_samples_23july2024/sample_test \
     feature1 \
@@ -207,15 +196,14 @@ Rscript scripts/04_visualize_summary_general.R \
 
 ---
 
-## File Naming Convention
+## Scripts Reference
 
-| Old Name | New Name | Purpose |
-|----------|----------|---------|
-| `generate_summary_of_outliers_scAbsolute.R` | `01_generate_outlier_summaries.R` | Generate per-sample outlier RDS files |
-| `visualize_summary_outlier_metadata_table.R` | `02_combine_outlier_summaries.R` | Combine RDS files into CSV with metadata |
-| `visualize_summary.R` | `03_visualize_outlier_summary.R` | Legacy: FFPE/cell line specific plots |
-| (new) | `04_visualize_summary_general.R` | General-purpose visualization |
-| `visualize_summary_outlier_table.R` | (deprecated) | Simpler version without full metadata |
+| Script | Purpose |
+|--------|---------|
+| `01_generate_outlier_summaries.R` | Step 1: Generate per-sample outlier RDS files |
+| `02_combine_outlier_summaries.R` | Step 2: Combine RDS files into CSV with metadata |
+| `03_visualize_summary.R` | Step 3: General-purpose visualization |
+| `legacy_visualize_ffpe_cellline.R` | Legacy: FFPE/cell line specific plots (optional) |
 
 ---
 
