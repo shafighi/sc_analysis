@@ -122,52 +122,6 @@ Rscript scripts/03_visualize_summary.R <input_csv> <out_base> [group_col] [label
 - `<basename>_summary_stats.csv` - Summary statistics by group
 - `<basename>_metrics_heatmap.pdf` - Heatmap overview of all metrics
 
-**Example:**
-```bash
-# Basic usage
-Rscript scripts/03_visualize_summary.R results/summary.csv results/
-
-# With grouping by HRD/HRP status
-Rscript scripts/03_visualize_summary.R results/summary.csv results/ feature1 Sample
-
-# With custom label column
-Rscript scripts/03_visualize_summary.R results/summary.csv results/ category "Cell line"
-```
-
-### Legacy Visualization (FFPE/Cell line specific)
-
-**Script:** `scripts/legacy_visualize_ffpe_cellline.R`
-
-This script is specific to FFPE and cell line comparisons. Use the general script above for most purposes.
-
----
-
-## Complete Example Workflow
-
-```bash
-# 1. Prepare your sample manifest
-cp samples/ALLSAMPLES_metadata.csv samples/my_analysis.csv
-# Edit my_analysis.csv to include your samples
-
-# 2. Generate outlier summaries for each sample
-Rscript scripts/01_generate_outlier_summaries.R samples/my_analysis.csv
-
-# 2. Combine all summaries into one table with metadata
-Rscript scripts/02_combine_outlier_summaries.R \
-    samples/my_analysis.csv \
-    /Volumes/Fl/sc_analysis/results \
-    /Volumes/Fl/sc_analysis/post-scAbsolute \
-    100
-
-# 3. Generate visualization plots
-Rscript scripts/03_visualize_summary.R \
-    /Volumes/Fl/sc_analysis/results/outlier_summary_table_meta_combined.csv \
-    /Volumes/Fl/sc_analysis/results \
-    feature1 \
-    Sample
-```
-
----
 
 ## Quick Start Example (ALLSAMPLES_sample.csv)
 
@@ -193,17 +147,6 @@ Rscript scripts/03_visualize_summary.R \
     feature1 \
     Sample
 ```
-
----
-
-## Scripts Reference
-
-| Script | Purpose |
-|--------|---------|
-| `01_generate_outlier_summaries.R` | Step 1: Generate per-sample outlier RDS files |
-| `02_combine_outlier_summaries.R` | Step 2: Combine RDS files into CSV with metadata |
-| `03_visualize_summary.R` | Step 3: General-purpose visualization |
-| `legacy_visualize_ffpe_cellline.R` | Legacy: FFPE/cell line specific plots (optional) |
 
 ---
 
