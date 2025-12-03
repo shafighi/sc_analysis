@@ -52,8 +52,14 @@ This script reads scAbsolute RDS objects and generates per-sample outlier summar
 
 **Usage:**
 ```bash
-Rscript scripts/01_generate_outlier_summaries.R samples/my_samples.csv
+Rscript scripts/01_generate_outlier_summaries.R <samples_csv> [obj_base] [out_base] [bin_size]
 ```
+
+**Arguments:**
+1. `samples_csv` - Path to sample manifest CSV
+2. `obj_base` - (Optional) Directory containing input RDS files (default: `/Volumes/Fl/sc_analysis/scAboslute-obj`)
+3. `out_base` - (Optional) Output directory for results (default: `/Volumes/Fl/sc_analysis/post-scAbsolute`)
+4. `bin_size` - (Optional) Bin size (default: `100`)
 
 **Input:**
 - Sample CSV manifest
@@ -66,14 +72,6 @@ Rscript scripts/01_generate_outlier_summaries.R samples/my_samples.csv
 - `normals.rds` - Normal cells identified
 - `heatmap_clustered.pdf` - Copy number heatmap
 
-**Configuration:**
-Edit the script to adjust paths:
-```r
-obj_base <- "/Volumes/Fl/sc_analysis/scAboslute-obj"  # Input RDS location
-out_base <- "/Volumes/Fl/sc_analysis/post-scAbsolute" # Output directory
-bin_size <- "100"                                      # Bin size
-```
-
 ---
 
 ## Step 3: Combine Summaries with Metadata
@@ -84,14 +82,14 @@ This script aggregates individual `outlier_summary.rds` files into a single CSV 
 
 **Usage:**
 ```bash
-Rscript scripts/02_combine_outlier_summaries.R samples/my_samples.csv /path/to/output /path/to/post-scAbsolute 100
+Rscript scripts/02_combine_outlier_summaries.R <samples_csv> <out_base> <obj_base> [bin_size]
 ```
 
 **Arguments:**
 1. `samples_csv` - Path to sample manifest CSV (with metadata columns)
 2. `out_base` - Output directory for combined CSV
-3. `obj_base` - Directory containing per-sample output folders
-4. `bin_size` - Bin size used in processing (default: 100)
+3. `obj_base` - Directory containing per-sample output folders (from Step 2)
+4. `bin_size` - (Optional) Bin size used in processing (default: `100`)
 
 **Output:**
 - `outlier_summary_table_meta_combined.csv` - Combined summary with metadata
@@ -101,28 +99,57 @@ Rscript scripts/02_combine_outlier_summaries.R samples/my_samples.csv /path/to/o
 
 ## Step 4: Visualize Results
 
-**Script:** `scripts/03_visualize_outlier_summary.R`
+There are two visualization options:
 
-This script generates visualization plots from the combined CSV.
+### Option A: General Visualization (Recommended)
+
+**Script:** `scripts/04_visualize_summary_general.R`
+
+A flexible, general-purpose visualizer that works with any summary CSV. Not specific to any sample type (FFPE, cell lines, etc.).
 
 **Usage:**
 ```bash
-Rscript scripts/03_visualize_outlier_summary.R /path/to/outlier_summary_table_meta_combined.csv /path/to/ffpe.csv /path/to/output
+Rscript scripts/04_visualize_summary_general.R <input_csv> <out_base> [group_col] [label_col]
 ```
 
 **Arguments:**
-1. `combined_csv` - Path to combined outlier summary CSV (from Step 3)
-2. `ffpe_csv` - Path to FFPE samples CSV (optional, pass empty string to skip)
-3. `out_base` - Output directory for plots
+1. `input_csv` - Path to combined outlier summary CSV (from Step 3)
+2. `out_base` - Output directory for plots
+3. `group_col` - (Optional) Column name for grouping/coloring (e.g., `feature1`, `category`)
+4. `label_col` - (Optional) Column name for x-axis labels (e.g., `Sample`, `Cell line`)
 
 **Output:**
-- `Good_Quality_Distribution.pdf` - Density plot of high-quality cell percentage
-- `cell_composition_plot.pdf` - Stacked bar chart of cell composition
-- `Cellines_95_2.csv` - Normalized data with computed percentages
-- For FFPE samples (if provided):
-  - `Good_Quality_Distribution_FFPE.pdf`
-  - `cell_composition_plot_FFPE.pdf`
-  - `Good_Quality_Distribution_Combined.pdf`
+- `<basename>_normalized.csv` - Normalized data with computed metrics
+- `<basename>_quality_distribution.pdf` - Density plot of high-quality %
+- `<basename>_quality_by_group.pdf` - Density plot colored by group
+- `<basename>_quality_boxplot.pdf` - Box plot by group
+- `<basename>_composition.pdf` - Stacked bar chart of cell composition
+- `<basename>_summary_by_group.pdf` - Mean quality by group with error bars
+- `<basename>_summary_stats.csv` - Summary statistics by group
+- `<basename>_metrics_heatmap.pdf` - Heatmap overview of all metrics
+
+**Example:**
+```bash
+# Basic usage
+Rscript scripts/04_visualize_summary_general.R results/summary.csv results/
+
+# With grouping by HRD/HRP status
+Rscript scripts/04_visualize_summary_general.R results/summary.csv results/ feature1 Sample
+
+# With custom label column
+Rscript scripts/04_visualize_summary_general.R results/summary.csv results/ category "Cell line"
+```
+
+### Option B: Legacy Visualization (FFPE/Cell line specific)
+
+**Script:** `scripts/03_visualize_outlier_summary.R`
+
+This script is specific to FFPE and cell line comparisons. Use Option A for general purposes.
+
+**Usage:**
+```bash
+Rscript scripts/03_visualize_outlier_summary.R <combined_csv> <ffpe_csv> <out_base>
+```
 
 ---
 
@@ -143,11 +170,39 @@ Rscript scripts/02_combine_outlier_summaries.R \
     /Volumes/Fl/sc_analysis/post-scAbsolute \
     100
 
-# 4. Generate visualization plots
-Rscript scripts/03_visualize_outlier_summary.R \
+# 4. Generate visualization plots (general)
+Rscript scripts/04_visualize_summary_general.R \
     /Volumes/Fl/sc_analysis/results/outlier_summary_table_meta_combined.csv \
-    "" \
-    /Volumes/Fl/sc_analysis/results
+    /Volumes/Fl/sc_analysis/results \
+    feature1 \
+    Sample
+```
+
+---
+
+## Quick Start Example (ALLSAMPLES_sample.csv)
+
+```bash
+# Step 1: Generate outlier summaries for each sample
+Rscript scripts/01_generate_outlier_summaries.R \
+    samples/ALLSAMPLES_sample.csv \
+    /Volumes/Fl/sc_analysis/scAboslute-obj \
+    /Volumes/Fl/sc_analysis/post-scAbsolute \
+    100
+
+# Step 2: Combine all summaries into one CSV with metadata
+Rscript scripts/02_combine_outlier_summaries.R \
+    samples/ALLSAMPLES_sample.csv \
+    /Volumes/Fl/sc_analysis/all_samples_23july2024/sample_test \
+    /Volumes/Fl/sc_analysis/post-scAbsolute \
+    100
+
+# Step 3: Generate visualization plots
+Rscript scripts/04_visualize_summary_general.R \
+    /Volumes/Fl/sc_analysis/all_samples_23july2024/sample_test/outlier_summary_table_meta_combined.csv \
+    /Volumes/Fl/sc_analysis/all_samples_23july2024/sample_test \
+    feature1 \
+    Sample
 ```
 
 ---
@@ -158,7 +213,8 @@ Rscript scripts/03_visualize_outlier_summary.R \
 |----------|----------|---------|
 | `generate_summary_of_outliers_scAbsolute.R` | `01_generate_outlier_summaries.R` | Generate per-sample outlier RDS files |
 | `visualize_summary_outlier_metadata_table.R` | `02_combine_outlier_summaries.R` | Combine RDS files into CSV with metadata |
-| `visualize_summary.R` | `03_visualize_outlier_summary.R` | Create plots from combined CSV |
+| `visualize_summary.R` | `03_visualize_outlier_summary.R` | Legacy: FFPE/cell line specific plots |
+| (new) | `04_visualize_summary_general.R` | General-purpose visualization |
 | `visualize_summary_outlier_table.R` | (deprecated) | Simpler version without full metadata |
 
 ---

@@ -24,8 +24,10 @@ Resistance <- c("Cisplatin sensitive","Cisplatin sensitive","Cisplatin sensitive
 # (`category`, `HRD_HRP`, `Resistance`) or the new ones
 # (`Cell line`/`Cell_line`, `feature1`, `feature2`). We normalize to
 # internal names `category`, `feature1`, `feature2`.
+print(paste("Samples CSV:", samples_csv))
 if (!is.null(samples_csv) && file.exists(samples_csv)) {
   samples_tbl <- read.csv(samples_csv, stringsAsFactors = FALSE, check.names = FALSE)
+  print(paste("Read samples CSV with", nrow(samples_tbl), "rows and", ncol(samples_tbl), "columns."))
   if (!"sample" %in% colnames(samples_tbl)) stop("samples CSV must contain a 'sample' column")
 
   # prefer new-style names if present
@@ -34,7 +36,7 @@ if (!is.null(samples_csv) && file.exists(samples_csv)) {
     colnames(samples_meta) <- c("sample", "category", "feature1", "feature2")
   } else if (all(c("Cell_line", "feature1", "feature2") %in% colnames(samples_tbl))) {
     samples_meta <- samples_tbl %>% dplyr::select(sample, Cell_line, feature1, feature2)
-    colnames(samples_meta) <- c("sample", "category", "feature1", "feature2")
+    colnames(samples_meta) <- c("sample", "Cell line", "feature1", "feature2")
   } else if (all(c("category","HRD_HRP","Resistance") %in% colnames(samples_tbl))) {
     # backward compatible: map legacy names
     samples_meta <- samples_tbl %>% dplyr::select(sample, category = category, feature1 = HRD_HRP, feature2 = Resistance)
@@ -42,9 +44,12 @@ if (!is.null(samples_csv) && file.exists(samples_csv)) {
     samples_meta <- samples_tbl %>% dplyr::mutate(HRD_HRP=NA, Resistance=NA) %>% dplyr::select(sample, category, HRD_HRP, Resistance)
     colnames(samples_meta) <- c("sample", "category", "feature1", "feature2")
   } else {
+    print(colnames(samples_tbl))
+    print("samples CSV does not contain required columns; falling back to hard-coded vectors.")
     samples_meta <- NULL
   }
 } else {
+  print("No samples CSV provided or file does not exist.")
   samples_meta <- NULL
 }
 
@@ -53,17 +58,20 @@ dir.create(out_base, recursive = TRUE, showWarnings = FALSE)
 # Build working list from either CSV or hard-coded vectors
 # Build working list from either CSV or hard-coded vectors
 if (!is.null(samples_meta)) {
+  print("Using sample metadata from CSV.")
   ALLSAMPLES_USE <- samples_meta$sample
   categories_use <- samples_meta$category
   feature1_use <- samples_meta$feature1
   feature2_use <- samples_meta$feature2
 } else {
+  print("Using hard-coded sample metadata.")
   ALLSAMPLES_USE <- ALLSAMPLES
   categories_use <- categories
   feature1_use <- HRD_HRP
   feature2_use <- Resistance
 }
-
+print("Using the following sample metadata:")
+print(data.frame(Sample=ALLSAMPLES_USE, Category=categories_use, feature1=feature1_use, feature2=feature2_use))
 # Validate lengths
 if (length(ALLSAMPLES_USE) != length(categories_use) || length(ALLSAMPLES_USE) != length(feature1_use) || length(ALLSAMPLES_USE) != length(feature2_use)) {
   stop("Metadata vectors (sample, category, feature1, feature2) must have the same length")
@@ -99,12 +107,13 @@ for (i in seq_along(ALLSAMPLES_USE)) {
 if (nrow(combined_outlier_summary) == 0) stop("No outlier summaries found — nothing to visualize.")
 
 # Define order and arrange
-category_order <- c("PEO1", "PEO4", "PEO6", "PEO1 MISSENSE", "PEO1 STOP", "PEO14", "PEO23", "CIOV3", "CIOV6", "HCT116", "HCT116 BRCA2 -/-", "UWB1.289", "UWB1.289 BRCA")
-if ("Category" %in% colnames(combined_outlier_summary)) {
-  combined_outlier_summary$Category <- factor(combined_outlier_summary$Category, levels = category_order)
-}
+#category_order <- c("PEO1", "PEO4", "PEO6", "PEO1 MISSENSE", "PEO1 STOP", "PEO14", "PEO23", "CIOV3", "CIOV6", "HCT116", "HCT116 BRCA2 -/-", "UWB1.289", "UWB1.289 BRCA")
+#if ("Category" %in% colnames(combined_outlier_summary)) {
+#  combined_outlier_summary$Category <- factor(combined_outlier_summary$Category, levels = category_order)
+#}
 
-sorted_data <- combined_outlier_summary %>% arrange(`Cell line`) %>% select(Sample, `Cell line`, feature1, feature2, everything())
+# Keep original order from input CSV (no sorting)
+sorted_data <- combined_outlier_summary # %>% select(Sample, `Cell line`, feature1, feature2, everything())
 
 # Ensure Sample/Category are character and add totals
 sorted_data$Sample <- as.character(sorted_data$Sample)

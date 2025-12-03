@@ -1,11 +1,14 @@
 #!/usr/bin/env Rscript
-## Runner: generate_summary_of_outliers_scAbsolute.R
+## Runner: 01_generate_outlier_summaries.R
 ## Usage:
-# Rscript scripts/generate_summary_of_outliers_scAbsolute.R [samples_csv]
+# Rscript scripts/01_generate_outlier_summaries.R <samples_csv> [obj_base] [out_base] [bin_size]
 # If no CSV is provided, the script falls back to a built-in sample vector.
 
 args <- commandArgs(trailingOnly = TRUE)
 samples_csv <- if (length(args) >= 1) args[[1]] else NULL
+obj_base <- if (length(args) >= 2) args[[2]] else "/Volumes/Fl/sc_analysis/scAboslute-obj"
+out_base <- if (length(args) >= 3) args[[3]] else "/Volumes/Fl/sc_analysis/post-scAbsolute"
+bin_size <- if (length(args) >= 4) args[[4]] else "100"
 
 library(Biobase)
 library(dplyr)
@@ -14,11 +17,6 @@ library(dplyr)
 source("R/core.R")
 source("R/visualization_helpers.R")
 source("R/summary_helpers.R")
-
-# default locations (adjust if needed)
-obj_base <- "/Volumes/Fl/sc_analysis/scAboslute-obj"
-out_base <- "/Volumes/Fl/sc_analysis/post-scAbsolute"
-bin_size <- "100"
 
 if (!is.null(samples_csv) && file.exists(samples_csv)) {
   samples_tbl <- read.csv(samples_csv, stringsAsFactors = FALSE)
