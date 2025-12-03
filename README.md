@@ -32,14 +32,3 @@ Rscript scripts/03_visualize_summary.R \
 ```
 
 See [scripts/README.md](scripts/README.md) for detailed pipeline documentation.
-
----
-
-## Legacy Workflow
-
-For each result from scAbsolute:
-1. `Rscript scripts/01_generate_outlier_summaries.R samples/ALLSAMPLES_23355_6.csv`
-2. GET_summary_of_dropouts
-3. PLOT_dropouts
-
-Then, for the results from scUnique...
