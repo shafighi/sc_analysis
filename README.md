@@ -61,18 +61,18 @@ See [scripts/README.md](scripts/README.md) for detailed pipeline documentation.
 **Main outputs** (overwritten each run):
 - `QC_summary.csv` - Final summary with all metrics and QC parameters used
 
-**Archived outputs** (organized by samples + config + date):
-- `archive/{samples}_{config}_{YYYYMMDD}/QC_summary.csv` - Archived copy
-- `archive/{samples}_{config}_{YYYYMMDD}/run_info.csv` - Run metadata
-- `archive/{samples}_{config}_{YYYYMMDD}/qc_params_all_samples.csv` - QC parameters per sample
+**Archived outputs** (organized by output folder + config + date):
+- `archive/{output}_{config}_{YYYYMMDD}/QC_summary.csv` - Archived copy
+- `archive/{output}_{config}_{YYYYMMDD}/run_info.csv` - Run metadata
+- `archive/{output}_{config}_{YYYYMMDD}/qc_params_all_samples.csv` - QC parameters per sample
 
-Archive naming: `{samples_csv}_{config_name}_{date}`
+Archive naming: `{output_folder}_{config_name}_{date}`
 
 Examples:
-- `ALLSAMPLES_metadata_qc_params_default_20240125/`
-- `PEO_samples_qc_params_relaxed_20240125/`
+- `all_samples_july2024_qc_params_default_20240125/`
+- `PEO_analysis_qc_params_relaxed_20240125/`
 
-Overwrites only when ALL match: same samples + same config + same day.
+Overwrites only when ALL match: same output folder + same config + same day.
 
 This ensures full traceability while avoiding redundant archives.
 

@@ -113,10 +113,10 @@ for (i in seq_len(nrow(samples_tbl))) {
 
 if (nrow(combined) == 0) stop("No outlier summaries found")
 
-# Create archive directory based on: samples + config + date
-# Same samples + same config + same date = same folder (overwrites)
-samples_name <- tools::file_path_sans_ext(basename(samples_csv))
-archive_dir <- file.path(out_base, "archive", paste0(samples_name, "_", config_name, "_", run_date))
+# Create archive directory based on: output folder + config + date
+# Same output + same config + same date = same folder (overwrites)
+output_name <- basename(normalizePath(out_base, mustWork = FALSE))
+archive_dir <- file.path(out_base, "archive", paste0(output_name, "_", config_name, "_", run_date))
 dir.create(archive_dir, recursive = TRUE, showWarnings = FALSE)
 
 # Identify QC columns (start with QC_)
@@ -190,7 +190,7 @@ if (requireNamespace("kableExtra", quietly = TRUE) && requireNamespace("webshot2
 
 message("\n=== Run Complete ===")
 message("Date: ", run_date)
-message("Samples file: ", samples_name)
+message("Output: ", output_name)
 message("Config: ", config_name)
 message("Samples processed: ", nrow(combined) - 1)
 message("Archive: ", basename(archive_dir))

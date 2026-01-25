@@ -103,12 +103,12 @@ if (length(qc_cols) > 0 && "QC_config_file" %in% names(df)) {
   if (length(cfg) > 0) config_name <- tools::file_path_sans_ext(cfg[1])
 }
 
-# Use input CSV name as identifier for the sample set
-input_name <- tools::file_path_sans_ext(basename(input_csv))
+# Use output folder name as identifier
+output_name <- basename(normalizePath(out_base, mustWork = FALSE))
 
-# Create archive directory based on: input + config + date
-# Same input + same config + same date = same folder (overwrites)
-archive_dir <- file.path(out_base, "archive", paste0(input_name, "_", config_name, "_", run_date))
+# Create archive directory based on: output + config + date
+# Same output + same config + same date = same folder (overwrites)
+archive_dir <- file.path(out_base, "archive", paste0(output_name, "_", config_name, "_", run_date))
 dir.create(archive_dir, recursive = TRUE, showWarnings = FALSE)
 
 # Output 1: Main QC_summary.csv (includes QC parameters)
@@ -238,7 +238,7 @@ if (nrow(df) >= 5) {
 message("\n=== Complete ===")
 message("Samples processed: ", nrow(df))
 message("Date: ", run_date)
-message("Input: ", input_name)
+message("Output: ", output_name)
 message("Config: ", config_name)
 message("Main output: ", qc_summary_file)
 message("Archive: ", basename(archive_dir))
