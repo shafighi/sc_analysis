@@ -1,0 +1,13 @@
+parameter,value,description
+rpc_cutoff,25,Reads Per Cell minimum (cells with RPC < this are outliers)
+mapd_cutoff,2,MAPD maximum (Median Absolute Pairwise Difference)
+mapd_density_control,FALSE,Use density-based MAPD filtering
+gini_norm_cutoff,2,Gini coefficient maximum (normalized)
+alpha_cutoff,1.5,HMM Alpha cutoff (SD multiplier for log-normal distribution)
+alpha_hard_cutoff,0.05,HMM Alpha hard cutoff (absolute threshold)
+gini_density_control,TRUE,Use density-based Gini filtering
+densityCutoff,0.1,Density cutoff for outlier detection
+cutoff_percentile,0.05,Percentile cutoff for QC metrics
+replicating_cutoff_value,1.5,Replicating cell detection cutoff (SD multiplier)
+replicating_iqr_value,1.5,Replicating cell IQR multiplier
+normal_threshold,95,Percentage of bins with CN=2 to be considered normal cell

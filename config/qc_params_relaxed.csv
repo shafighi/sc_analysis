@@ -1,0 +1,13 @@
+parameter,value,description
+rpc_cutoff,15,Reads Per Cell minimum (relaxed threshold)
+mapd_cutoff,1.5,MAPD maximum (stricter threshold)
+mapd_density_control,TRUE,Use density-based MAPD filtering
+gini_norm_cutoff,1.5,Gini coefficient maximum (stricter threshold)
+alpha_cutoff,2,HMM Alpha cutoff (more permissive)
+alpha_hard_cutoff,0.05,HMM Alpha hard cutoff
+gini_density_control,TRUE,Use density-based Gini filtering
+densityCutoff,0.1,Density cutoff for outlier detection
+cutoff_percentile,0.05,Percentile cutoff for QC metrics
+replicating_cutoff_value,1,Replicating cell detection cutoff (stricter)
+replicating_iqr_value,1.5,Replicating cell IQR multiplier
+normal_threshold,90,Percentage of bins with CN=2 to be considered normal (relaxed)

@@ -1,6 +1,7 @@
 get_summary_of_outliers <- function(object,
                                     SLX = NULL,
                                     UID = NULL,
+                                    # QC thresholds
                                     rpc_cutoff = 25,
                                     mapd_cutoff = 2,
                                     mapd_density_control = FALSE,
@@ -10,6 +11,15 @@ get_summary_of_outliers <- function(object,
                                     gini_density_control = TRUE,
                                     densityCutoff = 0.1,
                                     cutoff_percentile = 0.05,
+                                    # Replicating cell detection
+                                    replicating_cutoff_value = 1.5,
+                                    replicating_iqr_value = 1.5,
+                                    # Normal cell threshold
+                                    normal_threshold = 95,
+                                    # Cell cycle plot
+                                    generate_cellcycle_plot = FALSE,
+                                    cellcycle_path = NULL,
+                                    # Output options
                                     save_results = FALSE,
                                     outlier_cellbase_path = NULL,
                                     non_outlier_obj_path = NULL,
@@ -28,9 +38,18 @@ get_summary_of_outliers <- function(object,
   df <- predict_replicating(
     modified_df,
     batch = "technology",
-    cutoff_value = 1.5,
-    iqr_value = 1.5
+    cutoff_value = replicating_cutoff_value,
+    iqr_value = replicating_iqr_value
   )
+
+  # Optionally generate cell cycle plot
+  if (isTRUE(generate_cellcycle_plot) && !is.null(cellcycle_path)) {
+    fig_cellcycle <- ggplot2::ggplot(data = df) +
+      ggbeeswarm::geom_quasirandom(ggplot2::aes(x = SLX, y = cycling_activity, color = replicating), size = 0.8, alpha = 1.0) +
+      ggplot2::facet_wrap(~UID, scales = "free_x") +
+      ggpubr::theme_pubclean()
+    ggplot2::ggsave(cellcycle_path, fig_cellcycle, width = 3, height = 4)
+  }
   
   if (length(unique(df$cellid))>1){
     all_cellids <- unique(df$cellid)
@@ -117,7 +136,7 @@ get_summary_of_outliers <- function(object,
   
   # Print the results
   #print(metrics_df)
-  normals= metrics_df[metrics_df$percentage_2>95,]
+  normals= metrics_df[metrics_df$percentage_2>normal_threshold,]
   
   
   not_rep = df[df$replicating==FALSE,]
@@ -175,6 +194,22 @@ get_summary_of_outliers <- function(object,
   # optionally persist the cell-based outlier table
   if (isTRUE(save_results) && !is.null(outlier_cellbase_path)) saveRDS(summary_df_outliers, outlier_cellbase_path)
 
+  # Store QC criteria used
+  qc_criteria <- list(
+    rpc_cutoff = rpc_cutoff,
+    mapd_cutoff = mapd_cutoff,
+    mapd_density_control = mapd_density_control,
+    gini_norm_cutoff = gini_norm_cutoff,
+    alpha_cutoff = alpha_cutoff,
+    alpha_hard_cutoff = alpha_hard_cutoff,
+    gini_density_control = gini_density_control,
+    densityCutoff = densityCutoff,
+    cutoff_percentile = cutoff_percentile,
+    replicating_cutoff_value = replicating_cutoff_value,
+    replicating_iqr_value = replicating_iqr_value,
+    normal_threshold = normal_threshold
+  )
+
   # return results as a list (pure function unless save_results requested)
   return(list(
     df = df,
@@ -183,6 +218,7 @@ get_summary_of_outliers <- function(object,
     summary_df_outliers = summary_df_outliers,
     non_outlier_object = non_outlier_object,
     normals = normals,
-    summary_counts = summary_counts
+    summary_counts = summary_counts,
+    qc_criteria = qc_criteria
   ))
 }
