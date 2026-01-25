@@ -45,7 +45,7 @@ Rscript scripts/02_combine_outlier_summaries.R \
     "/Volumes/LenovoPS8/FI backup/sc_analysis/post-scAbsolute" \
     100
 
-# Step 3: Generate visualization plots
+# Step 3: Generate visualization plots and QC_summary.csv
 Rscript scripts/03_visualize_summary.R \
     "/Volumes/LenovoPS8/FI backup/sc_analysis/all_samples_23july2024/output/outlier_summary_table_meta_combined.csv" \
     "/Volumes/LenovoPS8/FI backup/sc_analysis/all_samples_23july2024/output" \
@@ -55,25 +55,11 @@ Rscript scripts/03_visualize_summary.R \
 
 See [scripts/README.md](scripts/README.md) for detailed pipeline documentation.
 
-## Output Column Definitions
+## Output
 
-### Raw Columns (from `outlier_summary_table_meta_combined.csv`)
+Final output: `output/post-scAbsolute_QC_results/QC_summary.csv`
 
-| Column | Description |
-|--------|-------------|
-| `Processed Cells` | Total number of cells sequenced in the sample |
-| `Replicating` | Cells detected as replicating (S-phase) based on read depth variation |
-| `Replicating & RPC` | Replicating cells that also fall below the RPC threshold |
-| `RPC Outliers` | Non-replicating cells with reads per cell < 25 (low coverage) |
-| `Alpha/Mapd/Gini` | Cells failing any QC metric (HMM alpha, MAPD, or Gini coefficient) |
-| `Good Quality Cells` | Cells passing all QC filters (non-replicating, sufficient RPC, good alpha/MAPD/Gini) |
-| `Normal Cells` | Diploid cells where >95% of bins have copy number = 2 |
-| `Sample` | Sample identifier |
-| `Cell line` | Cell line name from metadata |
-| `feature1` | First annotation (e.g., HRD/HRP status) |
-| `feature2` | Second annotation (e.g., treatment sensitivity) |
-
-### Normalized Columns (in `*_normalized.csv`)
+## QC Summary Columns
 
 | Column | Description |
 |--------|-------------|
@@ -81,23 +67,24 @@ See [scripts/README.md](scripts/README.md) for detailed pipeline documentation.
 | `Cell line` | Cell line name |
 | `feature1` | First annotation (e.g., HRD/HRP) |
 | `feature2` | Second annotation (e.g., treatment sensitivity) |
-| `post-scAbsolute` | Total cells sequenced (= `Processed Cells`) |
-| `Replicating` | Cells in S-phase |
-| `Outliers(RPC)` | Non-replicating cells with low read count (RPC < 25). Filtered FIRST, no overlap with Alpha/Mapd/Gini outliers |
-| `Outliers(Alpha/Mapd/Gini,post-RPC)` | Cells that passed RPC but failed Alpha/Mapd/Gini QC. No overlap with RPC outliers |
-| `PassedQC(incl.Normal)` | Cells passing all QC filters. Includes Normal cells as a subset |
-| `Normal` | Diploid cells where >95% of bins have copy number = 2 (subset of PassedQC) |
+| `post-scAbsolute` | Cells that passed scAbsolute processing (not all sequenced cells) |
+| `Replicating` | Cells in S-phase (identified by read depth variation) |
+| `Outliers(RPC)` | Non-replicating cells with RPC < 25 (filtered first) |
+| `Outliers(Alpha/Mapd/Gini,post-RPC)` | Cells that passed RPC but failed Alpha/Mapd/Gini QC |
+| `PassedQC(incl.Normal)` | Cells passing all QC filters (includes Normal) |
+| `Normal` | Diploid cells where >95% of bins have CN=2 |
 | `PassedQC-Normal` | Aberrant cells with CNVs that passed QC |
 | `(PassedQC+Replicating)/post-scAbsolute%` | Percentage of usable cells |
 | `PassedQC/post-scAbsolute%` | Percentage of cells that passed all QC |
 | `(PassedQC-Normal)/post-scAbsolute%` | Percentage of aberrant (CNV) cells |
 
-**Cell Flow:**
+## Cell Flow
+
 ```
-post-scAbsolute
+post-scAbsolute (cells passed scAbsolute)
 ├── Replicating (S-phase cells, set aside)
 └── Non-replicating
-    ├── Outliers(RPC) ──────────────────────► removed (low read count)
+    ├── Outliers(RPC) ──────────────────────► removed (RPC < 25)
     └── Passed RPC
         ├── Outliers(Alpha/Mapd/Gini) ──────► removed (QC failed)
         └── PassedQC(incl.Normal)
@@ -120,7 +107,7 @@ The outlier detection pipeline applies **sequential filtering** on non-replicati
    - **Gini coefficient**: measures inequality in read distribution
    - **HMM Alpha**: measures segmentation confidence
 
-   Cells failing any of these metrics are marked as `Outliers(Alpha/Mapd/Gini)`.
+   Cells failing any of these metrics are marked as `Outliers(Alpha/Mapd/Gini,post-RPC)`.
 
 4. **PassedQC** cells are those that passed ALL filters (RPC + Alpha/MAPD/Gini). This includes both aberrant cells (with CNVs) and normal diploid cells.
 
