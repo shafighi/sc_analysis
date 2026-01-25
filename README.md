@@ -73,16 +73,59 @@ See [scripts/README.md](scripts/README.md) for detailed pipeline documentation.
 | `feature1` | First annotation (e.g., HRD/HRP status) |
 | `feature2` | Second annotation (e.g., treatment sensitivity) |
 
-### Derived Columns (in `*_normalized.csv`)
+### Normalized Columns (in `*_normalized.csv`)
 
-| Column | Formula | Description |
-|--------|---------|-------------|
-| `Sequenced` | = `Processed Cells` | Renamed for clarity |
-| `Good_Quality` | = `Good Quality Cells` | Renamed for clarity |
-| `Normal` | = `Normal Cells` | Renamed for clarity |
-| `Outliers` | = `Alpha/Mapd/Gini` | Renamed for clarity |
-| `Filtered` | = `Good_Quality` - `Normal` | Good quality cells excluding normal diploid cells |
-| `High_Quality_Pct` | = (`Good_Quality` + `Replicating`) × 100 / `Sequenced` | Percentage of cells that are usable (good quality + replicating) |
-| `Pass_Rate` | = (`Sequenced` - `Outliers`) × 100 / `Sequenced` | Percentage of cells not flagged as QC outliers |
-| `Label` | from `label_col` parameter | X-axis label for plots (default: Sample) |
-| `Group` | from `group_col` parameter | Grouping variable for comparisons (default: feature1) |
+| Column | Description |
+|--------|-------------|
+| `Sample` | Sample identifier |
+| `Cell line` | Cell line name |
+| `feature1` | First annotation (e.g., HRD/HRP) |
+| `feature2` | Second annotation (e.g., treatment sensitivity) |
+| `post-scAbsolute` | Total cells sequenced (= `Processed Cells`) |
+| `Replicating` | Cells in S-phase |
+| `Outliers(RPC)` | Non-replicating cells with low read count (RPC < 25). Filtered FIRST, no overlap with Alpha/Mapd/Gini outliers |
+| `Outliers(Alpha/Mapd/Gini,post-RPC)` | Cells that passed RPC but failed Alpha/Mapd/Gini QC. No overlap with RPC outliers |
+| `PassedQC(incl.Normal)` | Cells passing all QC filters. Includes Normal cells as a subset |
+| `Normal` | Diploid cells where >95% of bins have copy number = 2 (subset of PassedQC) |
+| `PassedQC-Normal` | Aberrant cells with CNVs that passed QC |
+| `(PassedQC+Replicating)/post-scAbsolute%` | Percentage of usable cells |
+| `PassedQC/post-scAbsolute%` | Percentage of cells that passed all QC |
+| `(PassedQC-Normal)/post-scAbsolute%` | Percentage of aberrant (CNV) cells |
+
+**Cell Flow:**
+```
+post-scAbsolute
+├── Replicating (S-phase cells, set aside)
+└── Non-replicating
+    ├── Outliers(RPC) ──────────────────────► removed (low read count)
+    └── Passed RPC
+        ├── Outliers(Alpha/Mapd/Gini) ──────► removed (QC failed)
+        └── PassedQC(incl.Normal)
+            ├── Normal (diploid, >95% CN=2)
+            └── PassedQC-Normal (aberrant, has CNVs)
+```
+
+**Formula:** `post-scAbsolute` = `Replicating` + `Outliers(RPC)` + `Outliers(Alpha/Mapd/Gini)` + `PassedQC(incl.Normal)`
+
+## QC Pipeline Explanation
+
+The outlier detection pipeline applies **sequential filtering** on non-replicating cells:
+
+1. **Replicating cells are identified first** based on read depth variation patterns indicating S-phase. These cells are set aside (not removed, but tracked separately).
+
+2. **RPC (Reads Per Cell) filtering is applied first** to non-replicating cells. Cells with RPC < 25 are marked as `Outliers(RPC)` and removed from further QC steps. This ensures sufficient sequencing depth for reliable copy number calls.
+
+3. **Alpha/MAPD/Gini filtering is applied second**, only to cells that passed RPC:
+   - **MAPD** (Median Absolute Pairwise Difference): measures noise between adjacent bins
+   - **Gini coefficient**: measures inequality in read distribution
+   - **HMM Alpha**: measures segmentation confidence
+
+   Cells failing any of these metrics are marked as `Outliers(Alpha/Mapd/Gini)`.
+
+4. **PassedQC** cells are those that passed ALL filters (RPC + Alpha/MAPD/Gini). This includes both aberrant cells (with CNVs) and normal diploid cells.
+
+5. **Normal cells** are a subset of PassedQC where >95% of genomic bins have copy number = 2 (diploid).
+
+6. **PassedQC-Normal** = aberrant cells that passed QC but have copy number variations.
+
+**Key point:** The outlier categories are **non-overlapping** because filtering is sequential. A cell marked as `Outliers(RPC)` never gets evaluated for Alpha/MAPD/Gini, so there's no double-counting.

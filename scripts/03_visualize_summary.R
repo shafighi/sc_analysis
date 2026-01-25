@@ -26,14 +26,15 @@ message("Reading: ", input_csv)
 df <- read.csv(input_csv, stringsAsFactors = FALSE, check.names = FALSE)
 df <- df %>% filter(is.na(Sample) | Sample != "Total")
 
-# Normalize key columns
+# Normalize key columns (internal names for processing)
 col_map <- list(
   Sample      = c("Sample", "sample", "SampleID", "ID"),
-  Sequenced   = c("Processed Cells", "Processed.Cells", "Sequenced", "Sequenced.Cells", "Total"),
+  `post-scAbsolute` = c("Processed Cells", "Processed.Cells", "post-scAbsolute", "post-scAbsolute.Cells", "Total"),
   Good_Quality = c("Good Quality Cells", "Good.Quality.Cells", "Good.Quality", "GoodQuality"),
   Replicating = c("Replicating", "Replicating...RPC", "Replicating..RPC", "RPC"),
+  `Outliers(RPC)` = c("RPC Outliers", "RPC.Outliers"),
   Normal      = c("Normal Cells", "Normal.Cells", "Normal", "Normal_Cells"),
-  Outliers    = c("Alpha/Mapd/Gini", "Alpha.Mapd.Gini", "Outliers")
+  `Outliers(Alpha/Mapd/Gini)` = c("Alpha/Mapd/Gini", "Alpha.Mapd.Gini", "Outliers")
 )
 for (target in names(col_map)) {
   src <- pick_col(df, col_map[[target]])
@@ -41,32 +42,53 @@ for (target in names(col_map)) {
   else df[[target]] <- NA_real_
 }
 
-# Setup label and group columns
+# Setup label and group columns (for plotting only, not in output)
 if (is.null(label_col)) label_col <- pick_col(df, c("Sample", "Cell line", "category")) %||% "Sample"
-df$Label <- if (label_col %in% names(df)) as.character(df[[label_col]]) else seq_len(nrow(df))
+label_values <- if (label_col %in% names(df)) as.character(df[[label_col]]) else seq_len(nrow(df))
 
 if (is.null(group_col)) group_col <- pick_col(df, c("feature1", "feature2", "category", "Cell line"))
-df$Group <- if (!is.null(group_col) && group_col %in% names(df)) as.character(df[[group_col]]) else "All"
+group_values <- if (!is.null(group_col) && group_col %in% names(df)) as.character(df[[group_col]]) else "All"
 
-# Compute derived metrics
+# Compute derived metrics with descriptive names
 df <- df %>% mutate(
   Filtered = coalesce(Good_Quality, 0) - coalesce(Normal, 0),
-  High_Quality_Pct = round((coalesce(Good_Quality, 0) + coalesce(Replicating, 0)) * 100 / pmax(Sequenced, 1)),
-  Pass_Rate = round((coalesce(Sequenced, 0) - coalesce(Outliers, 0)) * 100 / pmax(Sequenced, 1))
+  `(PassedQC+Replicating)/post-scAbsolute%` = round((coalesce(Good_Quality, 0) + coalesce(Replicating, 0)) * 100 / pmax(`post-scAbsolute`, 1)),
+  `PassedQC/post-scAbsolute%` = round(coalesce(Good_Quality, 0) * 100 / pmax(`post-scAbsolute`, 1)),
+  `(PassedQC-Normal)/post-scAbsolute%` = round((coalesce(Good_Quality, 0) - coalesce(Normal, 0)) * 100 / pmax(`post-scAbsolute`, 1))
 )
+
+# Rename columns to be more descriptive
+df <- df %>% rename(
+  `Outliers(Alpha/Mapd/Gini,post-RPC)` = `Outliers(Alpha/Mapd/Gini)`,
+  `PassedQC(incl.Normal)` = Good_Quality,
+  `PassedQC-Normal` = Filtered
+)
+
+# Select and reorder columns for output: metadata first, then metrics
+metadata_cols <- c("Sample", "Cell line", "feature1", "feature2")
+metric_cols <- c("post-scAbsolute", "Replicating", "Outliers(RPC)", "Outliers(Alpha/Mapd/Gini,post-RPC)",
+                 "PassedQC(incl.Normal)", "Normal", "PassedQC-Normal",
+                 "(PassedQC+Replicating)/post-scAbsolute%", "PassedQC/post-scAbsolute%", "(PassedQC-Normal)/post-scAbsolute%")
+output_cols <- c(intersect(metadata_cols, names(df)), intersect(metric_cols, names(df)))
+df_output <- df %>% select(all_of(output_cols))
 
 dir.create(out_base, showWarnings = FALSE, recursive = TRUE)
 base_name <- tools::file_path_sans_ext(basename(input_csv))
 
 # Output normalized CSV
-write.csv(df, file.path(out_base, paste0(base_name, "_normalized.csv")), row.names = FALSE)
+write.csv(df_output, file.path(out_base, paste0(base_name, "_normalized.csv")), row.names = FALSE)
 message("Wrote: ", base_name, "_normalized.csv")
+
+# Add plotting columns to df (not saved to CSV)
+df$Label <- label_values
+df$Group <- group_values
+df$High_Quality_Pct <- df$`(PassedQC+Replicating)/post-scAbsolute%`
 
 # Plot 1: Quality distribution
 if (any(!is.na(df$High_Quality_Pct))) {
   p <- ggplot(df, aes(x = High_Quality_Pct)) +
     geom_density(fill = "steelblue", alpha = 0.7) +
-    labs(title = "Distribution of High-Quality Cell Percentage", x = "High-Quality (%)", y = "Density") +
+    labs(title = "Distribution of (PassedQC+Replicating)/post-scAbsolute %", x = "(PassedQC+Replicating)/post-scAbsolute %", y = "Density") +
     theme_minimal()
   ggsave(file.path(out_base, paste0(base_name, "_quality_distribution.pdf")), p, width = 6, height = 4)
   message("Wrote: ", base_name, "_quality_distribution.pdf")
@@ -77,7 +99,7 @@ if (length(unique(df$Group)) > 1 && any(!is.na(df$High_Quality_Pct))) {
   # Density by group
   p <- ggplot(df, aes(x = High_Quality_Pct, fill = Group)) +
     geom_density(alpha = 0.5) +
-    labs(title = paste("High-Quality % by", group_col), x = "High-Quality (%)", y = "Density") +
+    labs(title = paste("(PassedQC+Replicating)/post-scAbsolute % by", group_col), x = "(PassedQC+Replicating)/post-scAbsolute %", y = "Density") +
     theme_minimal()
   ggsave(file.path(out_base, paste0(base_name, "_quality_by_group.pdf")), p, width = 7, height = 4)
   message("Wrote: ", base_name, "_quality_by_group.pdf")
@@ -85,14 +107,14 @@ if (length(unique(df$Group)) > 1 && any(!is.na(df$High_Quality_Pct))) {
   # Boxplot by group
   p <- ggplot(df, aes(x = Group, y = High_Quality_Pct, fill = Group)) +
     geom_boxplot(alpha = 0.7) + geom_jitter(width = 0.2, alpha = 0.5, size = 1.5) +
-    labs(title = paste("High-Quality % by", group_col), x = group_col, y = "High-Quality (%)") +
+    labs(title = paste("(PassedQC+Replicating)/post-scAbsolute % by", group_col), x = group_col, y = "(PassedQC+Replicating)/post-scAbsolute %") +
     theme_minimal() + theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none")
   ggsave(file.path(out_base, paste0(base_name, "_quality_boxplot.pdf")), p, width = 7, height = 5)
   message("Wrote: ", base_name, "_quality_boxplot.pdf")
 }
 
 # Plot 4: Composition bar chart
-comp_cols <- c("Replicating", "Normal", "Filtered")
+comp_cols <- c("Replicating", "Normal", "PassedQC-Normal")
 if (any(comp_cols %in% names(df))) {
   df_plot <- head(df, 30)
   df_long <- df_plot %>%
@@ -102,7 +124,7 @@ if (any(comp_cols %in% names(df))) {
   if (nrow(df_long) > 0) {
     p <- ggplot(df_long, aes(x = factor(Label, levels = df_plot$Label), y = Count, fill = Category)) +
       geom_bar(stat = "identity") +
-      scale_fill_manual(values = c(Replicating = "#81C784", Normal = "#F0E68C", Filtered = "#D1C4E9")) +
+      scale_fill_manual(values = c(Replicating = "#81C784", Normal = "#F0E68C", `PassedQC-Normal` = "#D1C4E9")) +
       labs(title = "Cell Composition by Sample", x = label_col, y = "Cell Count") +
       theme_minimal() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 8))
     ggsave(file.path(out_base, paste0(base_name, "_composition.pdf")), p, width = max(8, nrow(df_plot) * 0.3), height = 6)
@@ -118,7 +140,7 @@ if (length(unique(df$Group)) > 1) {
       n = n(),
       mean_pct = mean(High_Quality_Pct, na.rm = TRUE),
       sd_pct = sd(High_Quality_Pct, na.rm = TRUE),
-      total_seq = sum(Sequenced, na.rm = TRUE),
+      total_seq = sum(`post-scAbsolute`, na.rm = TRUE),
       .groups = "drop"
     )
 
@@ -126,7 +148,7 @@ if (length(unique(df$Group)) > 1) {
     geom_bar(stat = "identity", alpha = 0.8) +
     geom_errorbar(aes(ymin = mean_pct - sd_pct, ymax = mean_pct + sd_pct), width = 0.2) +
     geom_text(aes(label = paste0("n=", n)), vjust = -0.5, size = 3) +
-    labs(title = paste("Mean High-Quality % by", group_col), x = group_col, y = "Mean %") +
+    labs(title = paste("Mean (PassedQC+Replicating)/post-scAbsolute % by", group_col), x = group_col, y = "Mean %") +
     theme_minimal() + theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none") +
     ylim(0, 100)
   ggsave(file.path(out_base, paste0(base_name, "_summary_by_group.pdf")), p, width = 7, height = 5)
@@ -136,7 +158,7 @@ if (length(unique(df$Group)) > 1) {
 
 # Plot 6: Metrics heatmap
 if (nrow(df) >= 5) {
-  heat_cols <- intersect(c("Sequenced", "Good_Quality", "Replicating", "Normal", "Outliers", "High_Quality_Pct"), names(df))
+  heat_cols <- intersect(c("post-scAbsolute", "PassedQC(incl.Normal)", "Replicating", "Normal", "Outliers(Alpha/Mapd/Gini,post-RPC)", "High_Quality_Pct"), names(df))
   if (length(heat_cols) >= 2) {
     df_heat <- df %>%
       select(Label, all_of(heat_cols)) %>%

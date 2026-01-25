@@ -1,0 +1,23 @@
+"Sample","Cell line","feature1","feature2","post-scAbsolute","Replicating","Outliers(RPC)","Outliers(Alpha/Mapd/Gini,post-RPC)","PassedQC(incl.Normal)","Normal","PassedQC-Normal","(PassedQC+Replicating)/post-scAbsolute%","PassedQC/post-scAbsolute%","(PassedQC-Normal)/post-scAbsolute%"
+23003,"PEO1","HRD","Cisplatin sensitive",288,35,25,41,187,0,187,77,65,65
+23303,"PEO1","HRD","Cisplatin sensitive",282,64,12,53,153,0,153,77,54,54
+23359,"PEO1","HRD","Cisplatin sensitive",236,41,14,39,142,0,142,78,60,60
+23526,"PEO4","HRP","Cisplatin Resistant",123,17,0,12,94,0,94,90,76,76
+23527,"PEO23","HRP","Cisplatin Resistant",337,60,2,28,247,0,247,91,73,73
+23528,"PEO23","HRP","Cisplatin Resistant",382,97,3,36,246,0,246,90,64,64
+23961,"CIOV3","HRP","-",384,80,3,57,244,0,244,84,64,64
+24077,"PEO4","HRP","Cisplatin Resistant",380,43,1,38,298,0,298,90,78,78
+24078,"CIOV6","HRD","-",312,34,51,79,148,0,148,58,47,47
+24130,"PEO6","HRP","Cisplatin Resistant",371,60,0,41,269,0,269,89,73,73
+24175,"HCT116","HRP","BRCA2 WT",382,46,4,55,277,10,267,85,73,70
+24441,"CIOV6","HRD","-",383,32,2,74,250,0,250,74,65,65
+24532,"PEO1","HRD","Cisplatin Sensitive",335,25,115,81,114,0,114,41,34,34
+24174,"HCT116 BRCA2 -/-","HRD","BRCA2 null",334,38,4,75,217,0,217,76,65,65
+24173,"PEO14","HRD","Cisplatin Sensitive",383,43,5,90,245,0,245,75,64,64
+24489,"UWB1.289 BRCA","HRP","BRCA1 restored",382,35,2,55,290,0,290,85,76,76
+24007,"PEO1","HRD","Cisplatin Sensitive",287,41,14,39,193,0,193,82,67,67
+23965,"PEO1","HRD","Cisplatin Sensitive",384,36,7,28,313,0,313,91,82,82
+24490,"UWB1.289","HRD","BCRA1 mutation",372,39,2,35,296,0,296,90,80,80
+24491,"PEO1 MISSENSE","HRD","-",382,73,1,41,267,0,267,89,70,70
+24518,"PEO1 STOP","HRD","-",384,79,1,54,250,0,250,86,65,65
+24835,"PEO1","HRD","Cisplatin Sensitive",253,55,157,41,0,0,0,22,0,0
