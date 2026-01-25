@@ -58,7 +58,23 @@ See [scripts/README.md](scripts/README.md) for detailed pipeline documentation.
 
 ## Output
 
-Final output: `output/post-scAbsolute_QC_results/QC_summary.csv`
+**Main outputs** (overwritten each run):
+- `QC_summary.csv` - Final summary with all metrics and QC parameters used
+
+**Archived outputs** (organized by samples + config + date):
+- `archive/{samples}_{config}_{YYYYMMDD}/QC_summary.csv` - Archived copy
+- `archive/{samples}_{config}_{YYYYMMDD}/run_info.csv` - Run metadata
+- `archive/{samples}_{config}_{YYYYMMDD}/qc_params_all_samples.csv` - QC parameters per sample
+
+Archive naming: `{samples_csv}_{config_name}_{date}`
+
+Examples:
+- `ALLSAMPLES_metadata_qc_params_default_20240125/`
+- `PEO_samples_qc_params_relaxed_20240125/`
+
+Overwrites only when ALL match: same samples + same config + same day.
+
+This ensures full traceability while avoiding redundant archives.
 
 ## QC Summary Columns
 
@@ -78,6 +94,13 @@ Final output: `output/post-scAbsolute_QC_results/QC_summary.csv`
 | `(PassedQC+Replicating)/post-scAbsolute%` | Percentage of usable cells |
 | `PassedQC/post-scAbsolute%` | Percentage of cells that passed all QC |
 | `(PassedQC-Normal)/post-scAbsolute%` | Percentage of aberrant (CNV) cells |
+| `QC_RPC_cutoff` | RPC threshold used (e.g., 25) |
+| `QC_MAPD_cutoff` | MAPD threshold used (e.g., 2) |
+| `QC_Gini_cutoff` | Gini threshold used (e.g., 2) |
+| `QC_Alpha_cutoff` | Alpha SD threshold used (e.g., 1.5) |
+| `QC_Alpha_hard_cutoff` | Alpha hard threshold used (e.g., 0.05) |
+| `QC_Normal_threshold` | Normal cell threshold used (e.g., 95%) |
+| `QC_config_file` | Config file used for this run |
 
 ## Cell Flow
 

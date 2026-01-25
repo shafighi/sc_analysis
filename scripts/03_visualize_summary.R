@@ -1,5 +1,17 @@
 #!/usr/bin/env Rscript
+# ==============================================================================
+# Visualize QC Summary and Generate Final Output
+# ==============================================================================
+#
 # Usage: Rscript scripts/03_visualize_summary.R <input_csv> <out_base> [group_col] [label_col]
+#
+# This script:
+#   - Reads combined outlier summary CSV (with QC parameters)
+#   - Generates visualization plots
+#   - Creates QC_summary.csv with all columns including QC parameters
+#   - Archives outputs with timestamps
+#
+# ==============================================================================
 
 args <- commandArgs(trailingOnly = TRUE)
 input_csv <- if (length(args) >= 1 && nzchar(args[[1]])) args[[1]] else NULL
@@ -10,6 +22,9 @@ label_col <- if (length(args) >= 4 && nzchar(args[[4]])) args[[4]] else NULL
 if (is.null(input_csv) || !file.exists(input_csv)) {
   stop("Usage: Rscript 03_visualize_summary.R <input_csv> <out_base> [group_col] [label_col]")
 }
+
+# Generate run date (not timestamp) - same day runs with same config overwrite
+run_date <- format(Sys.time(), "%Y%m%d")
 
 library(ggplot2)
 library(tidyr)
@@ -64,20 +79,61 @@ df <- df %>% rename(
   `PassedQC-Normal` = Filtered
 )
 
-# Select and reorder columns for output: metadata first, then metrics
+# Identify QC columns from input (start with QC_)
+qc_cols <- grep("^QC_", names(df), value = TRUE)
+
+# Select and reorder columns for output: metadata first, then metrics, then QC params
 metadata_cols <- c("Sample", "Cell line", "feature1", "feature2")
 metric_cols <- c("post-scAbsolute", "Replicating", "Outliers(RPC)", "Outliers(Alpha/Mapd/Gini,post-RPC)",
                  "PassedQC(incl.Normal)", "Normal", "PassedQC-Normal",
                  "(PassedQC+Replicating)/post-scAbsolute%", "PassedQC/post-scAbsolute%", "(PassedQC-Normal)/post-scAbsolute%")
-output_cols <- c(intersect(metadata_cols, names(df)), intersect(metric_cols, names(df)))
+output_cols <- c(intersect(metadata_cols, names(df)),
+                 intersect(metric_cols, names(df)),
+                 intersect(qc_cols, names(df)))
 df_output <- df %>% select(all_of(output_cols))
 
 dir.create(out_base, showWarnings = FALSE, recursive = TRUE)
 base_name <- tools::file_path_sans_ext(basename(input_csv))
 
-# Output normalized CSV
+# Determine config name from QC columns (if present)
+config_name <- "unknown"
+if (length(qc_cols) > 0 && "QC_config_file" %in% names(df)) {
+  cfg <- unique(df$QC_config_file)
+  cfg <- cfg[!is.na(cfg) & nzchar(cfg)]
+  if (length(cfg) > 0) config_name <- tools::file_path_sans_ext(cfg[1])
+}
+
+# Use input CSV name as identifier for the sample set
+input_name <- tools::file_path_sans_ext(basename(input_csv))
+
+# Create archive directory based on: input + config + date
+# Same input + same config + same date = same folder (overwrites)
+archive_dir <- file.path(out_base, "archive", paste0(input_name, "_", config_name, "_", run_date))
+dir.create(archive_dir, recursive = TRUE, showWarnings = FALSE)
+
+# Output 1: Main QC_summary.csv (includes QC parameters)
+qc_summary_file <- file.path(out_base, "QC_summary.csv")
+write.csv(df_output, qc_summary_file, row.names = FALSE)
+message("Wrote: ", qc_summary_file)
+
+# Output 2: Timestamped archive
+archive_qc_file <- file.path(archive_dir, "QC_summary.csv")
+write.csv(df_output, archive_qc_file, row.names = FALSE)
+message("Archived: ", archive_qc_file)
+
+# Output 3: Also keep normalized version for backward compatibility
 write.csv(df_output, file.path(out_base, paste0(base_name, "_normalized.csv")), row.names = FALSE)
 message("Wrote: ", base_name, "_normalized.csv")
+
+# Log QC parameters if present
+if (length(qc_cols) > 0) {
+  message("\nQC parameters in output:")
+  for (col in qc_cols) {
+    val <- unique(df_output[[col]])
+    val <- val[!is.na(val)]
+    if (length(val) > 0) message("  ", col, ": ", val[1])
+  }
+}
 
 # Add plotting columns to df (not saved to CSV)
 df$Label <- label_values
@@ -179,4 +235,11 @@ if (nrow(df) >= 5) {
   }
 }
 
-message("\n=== Complete: ", nrow(df), " samples processed ===")
+message("\n=== Complete ===")
+message("Samples processed: ", nrow(df))
+message("Date: ", run_date)
+message("Input: ", input_name)
+message("Config: ", config_name)
+message("Main output: ", qc_summary_file)
+message("Archive: ", basename(archive_dir))
+message("================")
