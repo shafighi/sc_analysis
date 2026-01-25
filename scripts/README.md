@@ -55,8 +55,8 @@ Rscript scripts/01_generate_outlier_summaries.R <samples_csv> [obj_base] [out_ba
 
 **Arguments:**
 1. `samples_csv` - Path to sample manifest CSV
-2. `obj_base` - (Optional) Directory containing input RDS files (default: `/Volumes/Fl/sc_analysis/scAboslute-obj`)
-3. `out_base` - (Optional) Output directory for results (default: `/Volumes/Fl/sc_analysis/post-scAbsolute`)
+2. `obj_base` - (Optional) Directory containing input RDS files (default: `/Volumes/LenovoPS8/FI backup/sc_analysis/scAboslute-obj`)
+3. `out_base` - (Optional) Output directory for results (default: `/Volumes/LenovoPS8/FI backup/sc_analysis/post-scAbsolute`)
 4. `bin_size` - (Optional) Bin size (default: `100`)
 
 **Input:**
@@ -123,27 +123,27 @@ Rscript scripts/03_visualize_summary.R <input_csv> <out_base> [group_col] [label
 - `<basename>_metrics_heatmap.pdf` - Heatmap overview of all metrics
 
 
-## Quick Start Example (ALLSAMPLES_sample.csv)
+## Quick Start Example
 
 ```bash
 # Step 1: Generate outlier summaries for each sample
 Rscript scripts/01_generate_outlier_summaries.R \
-    samples/ALLSAMPLES_sample.csv \
-    /Volumes/Fl/sc_analysis/scAboslute-obj \
-    /Volumes/Fl/sc_analysis/post-scAbsolute \
+    samples/ALLSAMPLES_metadata.csv \
+    "/Volumes/LenovoPS8/FI backup/sc_analysis/scAboslute-obj" \
+    "/Volumes/LenovoPS8/FI backup/sc_analysis/post-scAbsolute" \
     100
 
 # Step 2: Combine all summaries into one CSV with metadata
 Rscript scripts/02_combine_outlier_summaries.R \
-    samples/ALLSAMPLES_sample.csv \
-    /Volumes/Fl/sc_analysis/all_samples_23july2024/sample_test \
-    /Volumes/Fl/sc_analysis/post-scAbsolute \
+    samples/ALLSAMPLES_metadata.csv \
+    "/Volumes/LenovoPS8/FI backup/sc_analysis/all_samples_23july2024/output" \
+    "/Volumes/LenovoPS8/FI backup/sc_analysis/post-scAbsolute" \
     100
 
 # Step 3: Generate visualization plots
 Rscript scripts/03_visualize_summary.R \
-    /Volumes/Fl/sc_analysis/all_samples_23july2024/sample_test/outlier_summary_table_meta_combined.csv \
-    /Volumes/Fl/sc_analysis/all_samples_23july2024/sample_test \
+    "/Volumes/LenovoPS8/FI backup/sc_analysis/all_samples_23july2024/output/outlier_summary_table_meta_combined.csv" \
+    "/Volumes/LenovoPS8/FI backup/sc_analysis/all_samples_23july2024/output" \
     feature1 \
     Sample
 ```
