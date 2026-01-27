@@ -94,9 +94,7 @@ get_summary_of_outliers <- function(object,
   if (is.data.frame(iq$alpha.outlier)) alpha_flag <- iq$alpha.outlier[, 1] else alpha_flag <- iq$alpha.outlier
   iq$outlier <- dmap_flag | dgini_flag | alpha_flag
   
-  print(paste0("Out of ",nrow(df)," cells, ",sum((df$replicating)), " are replicating. Out of the ",sum((!df$replicating))," non-replicating cells, mapd outliers: ", sum(iq$dmapd.outlier)," gini outliers: ", sum(iq$dgini.outlier), ", and rpc outliers: " , sum(df[df$replicating==FALSE,]$rpc<rpc_cutoff), ", and alpha outliers: ",sum(iq$alpha.outlier), " and cells that are outlier at least in one of these categories: ",sum(iq$outlier)))
-  
-  print(iq$outlier)
+  message("Out of ", nrow(df), " cells, ", sum(df$replicating), " are replicating. Out of the ", sum(!df$replicating), " non-replicating cells: mapd outliers: ", sum(iq$dmapd.outlier), ", gini outliers: ", sum(iq$dgini.outlier), ", rpc outliers: ", sum(df[df$replicating == FALSE, ]$rpc < rpc_cutoff), ", alpha outliers: ", sum(iq$alpha.outlier), ", total outliers (at least one category): ", sum(iq$outlier))
   non_outlier_cells <- iq[!iq$outlier, ]$name
   condition_to_stay <- Biobase::pData(non_rep_object)$name %in% non_outlier_cells
 
