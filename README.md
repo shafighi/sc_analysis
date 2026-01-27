@@ -46,9 +46,9 @@ Rscript scripts/02_combine_outlier_summaries.R \
     "/Volumes/LenovoPS8/FI backup/sc_analysis/post-scAbsolute" \
     100
 
-# Step 3: Generate visualization plots and QC_summary.csv
+# Step 3: Generate visualization plots
 Rscript scripts/03_visualize_summary.R \
-    "/Volumes/LenovoPS8/FI backup/sc_analysis/all_samples_23july2024/output/outlier_summary_table_meta_combined.csv" \
+    "/Volumes/LenovoPS8/FI backup/sc_analysis/all_samples_23july2024/output/{output}_{config}_{date}.csv" \
     "/Volumes/LenovoPS8/FI backup/sc_analysis/all_samples_23july2024/output" \
     feature1 \
     Sample
@@ -58,23 +58,31 @@ See [scripts/README.md](scripts/README.md) for detailed pipeline documentation.
 
 ## Output
 
-**Main outputs** (overwritten each run):
-- `QC_summary.csv` - Final summary with all metrics and QC parameters used
+**Output file** (named by output folder + config + date):
+- `{output_folder}_{config}_{YYYYMMDD}.csv` - Combined QC summary with metadata header
 
-**Archived outputs** (organized by output folder + config + date):
-- `archive/{output}_{config}_{YYYYMMDD}/QC_summary.csv` - Archived copy
-- `archive/{output}_{config}_{YYYYMMDD}/run_info.csv` - Run metadata
-- `archive/{output}_{config}_{YYYYMMDD}/qc_params_all_samples.csv` - QC parameters per sample
+Same config + same date = overwrites previous file (no redundant copies).
 
-Archive naming: `{output_folder}_{config_name}_{date}`
-
-Examples:
-- `all_samples_july2024_qc_params_default_20240125/`
-- `PEO_analysis_qc_params_relaxed_20240125/`
-
-Overwrites only when ALL match: same output folder + same config + same day.
-
-This ensures full traceability while avoiding redundant archives.
+**Output file format:**
+```
+# ==============================================================================
+# QC Summary Report
+# ==============================================================================
+# Run Date: 20240125
+# Samples CSV: ALLSAMPLES_metadata.csv
+# Samples Processed: 22
+# Bin Size: 100
+#
+# QC Parameters:
+#   QC_RPC_cutoff: 25
+#   QC_MAPD_cutoff: 2
+#   QC_Gini_cutoff: 2
+#   QC_Alpha_cutoff: 1.5
+#   ...
+# ==============================================================================
+"Sample","Cell line","feature1",...
+"23003","PEO1","HRD",...
+```
 
 ## QC Summary Columns
 
@@ -94,13 +102,8 @@ This ensures full traceability while avoiding redundant archives.
 | `(PassedQC+Replicating)/post-scAbsolute%` | Percentage of usable cells |
 | `PassedQC/post-scAbsolute%` | Percentage of cells that passed all QC |
 | `(PassedQC-Normal)/post-scAbsolute%` | Percentage of aberrant (CNV) cells |
-| `QC_RPC_cutoff` | RPC threshold used (e.g., 25) |
-| `QC_MAPD_cutoff` | MAPD threshold used (e.g., 2) |
-| `QC_Gini_cutoff` | Gini threshold used (e.g., 2) |
-| `QC_Alpha_cutoff` | Alpha SD threshold used (e.g., 1.5) |
-| `QC_Alpha_hard_cutoff` | Alpha hard threshold used (e.g., 0.05) |
-| `QC_Normal_threshold` | Normal cell threshold used (e.g., 95%) |
-| `QC_config_file` | Config file used for this run |
+
+**Note:** QC parameters (RPC cutoff, MAPD cutoff, etc.) are stored in the file header as comments, not as columns.
 
 ## Cell Flow
 
@@ -200,7 +203,7 @@ alpha_cutoff,1.5,HMM Alpha cutoff (SD multiplier)
 ...
 ```
 
-The QC parameters used are automatically saved with each output (`qc_criteria_used.csv` and as columns in `outlier_summary.csv`).
+The QC parameters used are automatically saved in `qc_criteria_used.csv` per sample and in the header of the combined output CSV.
 
 ## Additional Analysis Scripts
 

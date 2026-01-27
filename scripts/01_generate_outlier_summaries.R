@@ -142,26 +142,13 @@ for (i in seq_len(nrow(samples_tbl))) {
 
   if (is.null(res)) next
 
-  # Save QC criteria alongside the summary
+  # Save QC criteria in separate file (for reference)
   qc_criteria_df <- as.data.frame(res$qc_criteria)
   qc_criteria_df$config_file <- basename(qc_config)
   write.csv(qc_criteria_df, file.path(output_dir, "qc_criteria_used.csv"), row.names = FALSE)
 
-  # Also save a combined summary with QC criteria as columns
-  summary_with_criteria <- cbind(
-    res$summary_df,
-    data.frame(
-      QC_RPC_cutoff = QC_PARAMS$rpc_cutoff,
-      QC_MAPD_cutoff = QC_PARAMS$mapd_cutoff,
-      QC_Gini_cutoff = QC_PARAMS$gini_norm_cutoff,
-      QC_Alpha_cutoff = QC_PARAMS$alpha_cutoff,
-      QC_Alpha_hard_cutoff = QC_PARAMS$alpha_hard_cutoff,
-      QC_Normal_threshold = QC_PARAMS$normal_threshold,
-      QC_config_file = basename(qc_config)
-    )
-  )
-  # Save as CSV for easy inspection
-  write.csv(summary_with_criteria, file.path(output_dir, "outlier_summary.csv"), row.names = FALSE)
+  # Save summary WITHOUT QC columns (QC params go in header of combined output)
+  write.csv(res$summary_df, file.path(output_dir, "outlier_summary.csv"), row.names = FALSE)
 
   # Generate heatmap if valid data exists
   if (!is.null(res$non_outlier_object)) {
