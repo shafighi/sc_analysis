@@ -147,7 +147,7 @@ get_summary_of_outliers <- function(object,
   
   
   summary_df <- as.data.frame(t(c(nrow(df),sum((df$replicating)),sum(rep_only$rpc<rpc_cutoff),sum(df[df$replicating==FALSE,]$rpc<rpc_cutoff),sum(iq$dmapd.outlier | iq$dgini.outlier | iq$alpha.outlier),ncol(non_outlier_object@assayData$copynumber),nrow(normals))))
-  colnames(summary_df) <- c("Processed Cells", "Replicating","Replicating & RPC","RPC Outliers","Alpha/Mapd/Gini","Good Quality Cells","Normal Cells")
+  colnames(summary_df) <- c("post-scAbsolute", "Replicating", "Replicating(low-RPC)", "Outliers(RPC)", "Outliers(Alpha/Mapd/Gini,post-RPC)", "PassedQC(incl.Normal)", "Normal")
   
   # Plot the table
   #table_plot <- tableGrob(summary_df)
