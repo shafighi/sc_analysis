@@ -125,7 +125,7 @@ echo "Step 3: Generating visualizations..."
 echo "----------------------------------------------"
 
 # Find the most recent output file from step 2
-STEP2_OUTPUT=$(ls -t "$OUT_BASE"/output_*.csv 2>/dev/null | head -1)
+STEP2_OUTPUT=$(ls -t "$OUT_BASE"/*_*_*.csv 2>/dev/null | head -1)
 
 if [ -z "$STEP2_OUTPUT" ]; then
     echo "ERROR: No output file found from Step 2"
