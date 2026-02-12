@@ -60,12 +60,18 @@ get_summary_of_outliers <- function(object,
     print("Problem: I could not find the column of names!")
   }
   
-  na_alpha_cells <- df[!complete.cases(df$hmm.alpha), ]
+  na_alpha_idx <- which(!complete.cases(df$hmm.alpha))
+  na_alpha_cells <- df[na_alpha_idx, ]
   df <- df[complete.cases(df$hmm.alpha), ]
-  
+
+  # Remove NA alpha cells from the object so subsetting vectors stay aligned
+  if (length(na_alpha_idx) > 0) {
+    object <- object[, -na_alpha_idx]
+  }
+
   rep_cells = df[df$replicating==TRUE,]$name
   condition_to_remove <- df$name %in% rep_cells
-  
+
   non_rep_object <- object[, !condition_to_remove]
   #iq = pre_scUnique_filtering(df[df$replicating==FALSE,],OUTPUT,mapd_cutoff=2,mapd_density_control= TRUE,gini_norm_cutoff=2,alpha_cutoff=2,alpha_hard_cutoff =0.05,gini_density_control=TRUE,rpc_cutoff=15)
   # use parameters passed to the function (defaults above)
@@ -96,7 +102,7 @@ get_summary_of_outliers <- function(object,
   
   message("Out of ", nrow(df), " cells, ", sum(df$replicating), " are replicating. Out of the ", sum(!df$replicating), " non-replicating cells: mapd outliers: ", sum(iq$dmapd.outlier), ", gini outliers: ", sum(iq$dgini.outlier), ", rpc outliers: ", sum(df[df$replicating == FALSE, ]$rpc < rpc_cutoff), ", alpha outliers: ", sum(iq$alpha.outlier), ", total outliers (at least one category): ", sum(iq$outlier))
   non_outlier_cells <- iq[!iq$outlier, ]$name
-  condition_to_stay <- Biobase::pData(non_rep_object)$name %in% non_outlier_cells
+  condition_to_stay <- sub("_[0-9]*$", "", Biobase::pData(non_rep_object)$name) %in% non_outlier_cells
 
   non_outlier_object <- non_rep_object[, condition_to_stay]
   if (isTRUE(save_results) && !is.null(non_outlier_obj_path)) saveRDS(non_outlier_object, non_outlier_obj_path)

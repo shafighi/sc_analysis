@@ -5,7 +5,7 @@ mapd_density_control,FALSE,Use density-based MAPD filtering
 gini_norm_cutoff,2,Gini coefficient maximum (normalized)
 alpha_cutoff,1.5,HMM Alpha cutoff (SD multiplier for log-normal distribution)
 alpha_hard_cutoff,0.05,HMM Alpha hard cutoff (absolute threshold)
-gini_density_control,TRUE,Use density-based Gini filtering
+gini_density_control,FALSE,Use density-based Gini filtering
 densityCutoff,0.1,Density cutoff for outlier detection
 cutoff_percentile,0.05,Percentile cutoff for QC metrics
 replicating_cutoff_value,1.5,Replicating cell detection cutoff (SD multiplier)
