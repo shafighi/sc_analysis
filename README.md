@@ -52,6 +52,21 @@ Rscript scripts/03_visualize_summary.R \
     "/Volumes/LenovoPS8/FI backup/sc_analysis/all_samples_23july2024/output" \
     feature1 \
     Sample
+
+# Step 4: Generate per-sample dropout summaries (requires step 1 output)
+Rscript scripts/04_generate_dropout_summaries.R \
+    samples/ALLSAMPLES_metadata.csv \
+    "/Volumes/LenovoPS8/FI backup/sc_analysis/scAboslute-obj" \
+    "/Volumes/LenovoPS8/FI backup/sc_analysis/post-scAbsolute" \
+    100
+
+# Step 5: Visualize dropout heatmap (requires step 4 output)
+Rscript scripts/05_visualize_dropout_heatmap.R \
+    samples/ALLSAMPLES_metadata.csv \
+    "/Volumes/LenovoPS8/FI backup/sc_analysis/post-scAbsolute" \
+    "/Volumes/LenovoPS8/FI backup/sc_analysis/all_samples_23july2024/output" \
+    100 \
+    "Cell line"
 ```
 
 See [scripts/README.md](scripts/README.md) for detailed pipeline documentation.
@@ -204,6 +219,28 @@ alpha_cutoff,1.5,HMM Alpha cutoff (SD multiplier)
 ```
 
 The QC parameters used are automatically saved in `qc_criteria_used.csv` per sample and in the header of the combined output CSV.
+
+## Dropout Analysis (Steps 4-5)
+
+Steps 4 and 5 analyze **copy number dropouts** — genomic bins where the segmented copy number is 0, indicating potential technical artifacts or biological deletions.
+
+### Step 4: Generate Dropout Summaries
+
+For each sample, reads the scAbsolute object and `cellbased_outliers.rds` from step 1, then:
+- Counts dropout bins (segVal == 0) per cell per chromosome
+- Assigns QC status to each cell (pass, replicating, rpc_outlier, etc.)
+- Saves per-sample files: `cn_binned.rds`, `cell_chr_dropout.rds`, `cell_dropout_status.csv`
+- Writes a combined `dropout_summary_combined.csv` with per-chromosome dropout frequencies normalized by cell count
+
+### Step 5: Visualize Dropout Heatmap
+
+Generates a publication-ready heatmap (PDF) showing dropout frequency per cell across chromosomes and samples:
+- Compact layout with numeric annotations in each tile
+- Viridis color scale, faceted by sample category
+- Adaptive text color (white on dark, black on light tiles)
+- Auto-sized dimensions based on number of samples
+
+Both steps can be run independently or as part of the full pipeline.
 
 ## Additional Analysis Scripts
 

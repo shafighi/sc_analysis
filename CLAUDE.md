@@ -14,11 +14,14 @@ Single-cell copy number analysis pipeline for processing results from scAbsolute
   - `core.R` - Main QC functions: `qc_gini()`, `qc_alpha()`, `qc_mapd()`, `predict_replicating()`, `get_summary_of_outliers()`
   - `summary_helpers.R` - Outlier summarization
   - `visualization_helpers.R` - `plotCopynumberHeatmap()` and plotting utilities
+  - `dropout_helpers.R` - Dropout analysis: `get_dropout_by_chromosome()`, `assign_cell_status()`
 
 - **scripts/** - Analysis pipeline (numbered scripts are the main workflow)
   - `01_generate_outlier_summaries.R` - Process individual scAbsolute RDS objects, apply QC filters
   - `02_combine_outlier_summaries.R` - Aggregate summaries with metadata into combined CSV
   - `03_visualize_summary.R` - Generate publication-ready plots
+  - `04_generate_dropout_summaries.R` - Analyze copy number dropouts per cell and chromosome
+  - `05_visualize_dropout_heatmap.R` - Publication-ready dropout frequency heatmap
 
 - **samples/** - Sample manifest CSVs with metadata (sample ID, cell line, features)
 
@@ -50,6 +53,21 @@ Rscript scripts/03_visualize_summary.R \
     /output/path \
     feature1 \
     Sample
+
+# Step 4: Generate per-sample dropout summaries (requires step 1 output)
+Rscript scripts/04_generate_dropout_summaries.R \
+    samples/ALLSAMPLES_metadata.csv \
+    /path/to/scAbsolute-obj \
+    /path/to/output \
+    100
+
+# Step 5: Visualize dropout heatmap (requires step 4 output)
+Rscript scripts/05_visualize_dropout_heatmap.R \
+    samples/ALLSAMPLES_metadata.csv \
+    /path/to/output \
+    /path/to/plots \
+    100 \
+    "Cell line"
 ```
 
 ## QC Metrics and Default Thresholds
