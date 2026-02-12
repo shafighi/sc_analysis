@@ -103,6 +103,25 @@ Rscript scripts/06_visualize_sample_dropouts.R \
     100
 ```
 
+## QC Filtering Order
+
+Filters are applied sequentially. Each step operates on cells that passed the previous step:
+
+1. **NA Alpha removal** — Cells with missing `hmm.alpha` values are excluded from QC (tracked separately)
+2. **Replicating cell detection** — S-phase/cycling cells identified via `predict_replicating()` and removed from further QC
+3. **RPC filter** — Non-replicating cells with `rpc < rpc_cutoff` are flagged as `Outliers(RPC)` and excluded
+4. **MAPD outlier detection** — Robust regression of MAPD ~ 1/RPC; residuals > cutoff flagged (`qc_mapd()`)
+5. **Gini outlier detection** — Robust regression of Gini ~ RPC; residuals > cutoff flagged (`qc_gini_norm()`)
+6. **Alpha outlier detection** — Log-normal distribution; cells beyond cutoff SD or hard threshold flagged (`qc_alpha()`)
+7. **Combined outlier** — Cells failing any of MAPD/Gini/Alpha (logical OR) are `Outliers(Alpha/Mapd/Gini,post-RPC)`
+8. **Normal cell detection** — Among PassedQC cells, those with >95% bins at CN=2 are flagged as `Normal`
+
+Summary categories (mutually exclusive, sum to `post-scAbsolute`):
+- `Replicating` — cycling cells (includes `Replicating(low-RPC)` subset)
+- `Outliers(RPC)` — non-replicating cells with insufficient reads
+- `Outliers(Alpha/Mapd/Gini,post-RPC)` — quality outliers detected after RPC filtering
+- `PassedQC(incl.Normal)` — cells passing all filters (includes `Normal` subset)
+
 ## QC Metrics and Default Thresholds
 
 - **RPC** (Reads Per Cell): >= 25

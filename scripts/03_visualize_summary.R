@@ -39,16 +39,19 @@ df <- df %>% filter(is.na(Sample) | Sample != "Total")
 col_map <- list(
   Sample      = c("Sample", "sample", "SampleID", "ID"),
   `post-scAbsolute` = c("Processed Cells", "Processed.Cells", "post-scAbsolute"),
-  Good_Quality = c("PassedQC(incl.Normal)", "Good Quality Cells", "Good.Quality.Cells", "Good.Quality"),
+  Good_Quality = c("PassedQC(incl.Normal)", "PassedQC.incl.Normal.", "Good Quality Cells", "Good.Quality.Cells", "Good.Quality"),
   Replicating = c("Replicating", "Replicating...RPC"),
   Normal      = c("Normal Cells", "Normal.Cells", "Normal"),
-  `PassedQC-Normal` = c("PassedQC-Normal", "Filtered")
+  `Outliers(RPC)` = c("Outliers(RPC)", "Outliers.RPC."),
+  `Outliers(Alpha/Mapd/Gini)` = c("Outliers(Alpha/Mapd/Gini,post-RPC)", "Outliers.Alpha.Mapd.Gini.post.RPC.")
 )
 for (target in names(col_map)) {
   src <- pick_col(df, col_map[[target]])
   if (!is.null(src)) df[[target]] <- suppressWarnings(as.numeric(df[[src]]))
   else df[[target]] <- NA_real_
 }
+# Derive PassedQC (excluding Normal) for composition chart
+df$PassedQC <- coalesce(df$Good_Quality, 0) - coalesce(df$Normal, 0)
 
 # Setup label and group columns
 if (is.null(label_col)) label_col <- pick_col(df, c("Sample", "Cell line", "category")) %||% "Sample"
@@ -96,18 +99,28 @@ if (length(unique(df$Group)) > 1 && any(!is.na(df$High_Quality_Pct))) {
   message("Wrote: boxplot and group plots")
 }
 
-# Plot 4: Composition bar chart
-comp_cols <- c("Replicating", "Normal", "PassedQC-Normal")
+# Plot 4: Composition bar chart (categories matching outlier_summary.csv)
+comp_cols <- c("Replicating", "Outliers(RPC)", "Outliers(Alpha/Mapd/Gini)", "PassedQC", "Normal")
+# Okabe-Ito colorblind-safe palette (Nature recommended)
+comp_colors <- c(
+  "Replicating"                 = "#E69F00",
+  "Outliers(RPC)"               = "#D55E00",
+  "Outliers(Alpha/Mapd/Gini)"   = "#0072B2",
+  "PassedQC"                    = "#009E73",
+  "Normal"                      = "#CC79A7"
+)
+
 if (any(comp_cols %in% names(df))) {
   df_plot <- head(df, 30)
   df_long <- df_plot %>%
     select(Label, any_of(comp_cols)) %>%
-    pivot_longer(-Label, names_to = "Category", values_to = "Count")
+    pivot_longer(-Label, names_to = "Category", values_to = "Count") %>%
+    mutate(Category = factor(Category, levels = rev(names(comp_colors))))
 
   if (nrow(df_long) > 0) {
     p <- ggplot(df_long, aes(x = factor(Label, levels = df_plot$Label), y = Count, fill = Category)) +
       geom_bar(stat = "identity") +
-      scale_fill_manual(values = c(Replicating = "#81C784", Normal = "#F0E68C", `PassedQC-Normal` = "#D1C4E9")) +
+      scale_fill_manual(values = comp_colors, drop = FALSE) +
       labs(title = "Cell Composition by Sample", x = label_col, y = "Cell Count") +
       theme_minimal() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 8))
     ggsave(file.path(out_base, paste0(base_name, "_composition.pdf")), p, width = max(8, nrow(df_plot) * 0.3), height = 6)

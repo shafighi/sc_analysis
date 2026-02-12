@@ -51,14 +51,9 @@ get_summary_of_outliers <- function(object,
     ggplot2::ggsave(cellcycle_path, fig_cellcycle, width = 3, height = 4)
   }
   
-  if (length(unique(df$cellid))>1){
-    all_cellids <- unique(df$cellid)
-  }else if((length(unique(df$name))>1)){
-    print("Problem!!!")
-    all_cellids <- unique(df$name)
-  }else{
-    print("Problem: I could not find the column of names!")
-  }
+  # Use full cell name as unique identifier (cellid is just the well position
+  # which is NOT unique across plates)
+  all_cell_names <- unique(df$name)
   
   na_alpha_idx <- which(!complete.cases(df$hmm.alpha))
   na_alpha_cells <- df[na_alpha_idx, ]
@@ -161,39 +156,22 @@ get_summary_of_outliers <- function(object,
   if (isTRUE(save_results) && !is.null(normals_path)) saveRDS(normals, normals_path)
   if (isTRUE(save_results) && !is.null(outlier_summary_path)) saveRDS(summary_df, outlier_summary_path)
   
-  # Create the summary dataframe
-  if (length(unique(df$cellid))>1){
-    summary_df_outliers <- data.frame(cellid = all_cellids) %>%
-      mutate(
-        replicating = cellid %in% df[df$replicating,]$cellid,
-        dmap_outlier = cellid %in% iq[iq$dmapd.outlier,]$cellid,
-        gini_outlier = cellid %in% iq[iq$dgini.outlier,]$cellid,
-        rpc_outlier_non_replicating = cellid %in% not_rep[not_rep$rpc<rpc_cutoff,]$cellid,
-        rpc_outlier_replicating = cellid %in% rep_only[rep_only$rpc<rpc_cutoff,]$cellid,
-        alpha_outlier = cellid %in% iq[iq$alpha.outlier,]$cellid,
-        na_alpha_outliers = cellid %in% na_alpha_cells$cellid,
-        gini_alpha_mapd = cellid %in% iq[iq$dmapd.outlier | iq$dgini.outlier | iq$alpha.outlier,]$cellid
-      ) %>%
-      mutate(across(-cellid, as.integer))
-  }else if((length(unique(df$name))>1)){
-    summary_df_outliers <- data.frame(cellid = all_cellids) %>%
-      mutate(
-        replicating = cellid %in% df[df$replicating,]$name,
-        dmap_outlier = cellid %in% iq[iq$dmapd.outlier,]$name,
-        gini_outlier = cellid %in% iq[iq$dgini.outlier,]$name,
-        rpc_outlier_non_replicating = cellid %in% not_rep[not_rep$rpc<rpc_cutoff,]$cellid,
-        rpc_outlier_replicating = cellid %in% rep_only[rep_only$rpc<rpc_cutoff,]$cellid,
-        alpha_outlier = cellid %in% iq[iq$alpha.outlier,]$name,
-        na_alpha_outliers = cellid %in% na_alpha_cells$name,
-        gini_alpha_mapd = cellid %in% iq[iq$dmapd.outlier | iq$dgini.outlier | iq$alpha.outlier,]$name
-      ) %>%
-      mutate(across(-cellid, as.integer))
-  } else {
-    print("There is a problem with the name of the cells")
-  }
+  # Create per-cell summary using full cell name (unique across plates)
+  summary_df_outliers <- data.frame(name = all_cell_names, stringsAsFactors = FALSE) %>%
+    mutate(
+      replicating = name %in% df[df$replicating,]$name,
+      dmap_outlier = name %in% iq[iq$dmapd.outlier,]$name,
+      gini_outlier = name %in% iq[iq$dgini.outlier,]$name,
+      rpc_outlier_non_replicating = name %in% not_rep[not_rep$rpc<rpc_cutoff,]$name,
+      rpc_outlier_replicating = name %in% rep_only[rep_only$rpc<rpc_cutoff,]$name,
+      alpha_outlier = name %in% iq[iq$alpha.outlier,]$name,
+      na_alpha_outliers = name %in% na_alpha_cells$name,
+      gini_alpha_mapd = name %in% iq[iq$dmapd.outlier | iq$dgini.outlier | iq$alpha.outlier,]$name
+    ) %>%
+    mutate(across(-name, as.integer))
   # Get a summary of how many cells are in each category
   summary_counts <- summary_df_outliers %>%
-    summarise(across(-cellid, sum))
+    summarise(across(-name, sum))
   
   # optionally persist the cell-based outlier table
   if (isTRUE(save_results) && !is.null(outlier_cellbase_path)) saveRDS(summary_df_outliers, outlier_cellbase_path)
