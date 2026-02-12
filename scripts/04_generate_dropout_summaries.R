@@ -28,7 +28,7 @@
 args <- commandArgs(trailingOnly = TRUE)
 samples_csv <- if (length(args) >= 1) args[[1]] else NULL
 obj_base    <- if (length(args) >= 2) args[[2]] else "/Volumes/LenovoPS8/FI backup/sc_analysis/scAboslute-obj"
-out_base    <- if (length(args) >= 3) args[[3]] else "/Volumes/LenovoPS8/FI backup/sc_analysis/post-scAbsolute"
+out_base    <- if (length(args) >= 3) args[[3]] else "/Volumes/LenovoPS8/FI backup/sc_analysis/analysis_per_sample"
 bin_size    <- if (length(args) >= 4) args[[4]] else "100"
 
 library(Biobase)

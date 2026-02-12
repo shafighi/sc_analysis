@@ -3,19 +3,28 @@
 # Run the complete analysis pipeline (Steps 1-5)
 # ==============================================================================
 #
-# Usage: ./run_pipeline.sh [samples_csv] [base_path] [bin_size] [qc_config] [group_col]
+# Usage: ./run_pipeline.sh [samples_csv] [base_path] [bin_size] [qc_config] [group_col] [project_name]
+#
+# Steps:
+#   1 - Generate per-sample outlier summaries
+#   2 - Combine summaries with metadata
+#   3 - Visualize combined summary
+#   4 - Generate per-sample dropout summaries
+#   5 - Cross-sample dropout heatmap
+#   6 - Per-sample dropout barplots and heatmaps
 #
 # Arguments:
 #   samples_csv - CSV file with sample IDs (default: samples/ALLSAMPLES_metadata.csv)
 #   base_path   - Base path to data directories (default: /Volumes/LenovoPS8/FI backup/sc_analysis)
 #   bin_size    - Bin size for analysis (default: 100)
 #   qc_config   - QC parameters config file (default: config/qc_params_default.csv)
-#   group_col   - Column to group/facet dropout heatmap by (default: "Cell line")
+#   group_col    - Column to group/facet dropout heatmap by (default: "Cell line")
+#   project_name - Name for cross-sample output folder (default: "all_samples")
 #
-# Data paths (derived from base_path):
+# Data paths (derived from base_path and project_name):
 #   - Input:  {base_path}/scAboslute-obj/
-#   - Output: {base_path}/post-scAbsolute/
-#   - Final:  {base_path}/all_samples_23july2024/output/
+#   - Per-sample output: {base_path}/analysis_per_sample/
+#   - Cross-sample output: {base_path}/results_{project_name}/
 #
 # Examples:
 #   ./run_pipeline.sh
@@ -23,35 +32,38 @@
 #   ./run_pipeline.sh samples/ALLSAMPLES_metadata.csv "/Volumes/MyDrive/data" 100
 #   ./run_pipeline.sh samples/ALLSAMPLES_metadata.csv "/Volumes/MyDrive/data" 100 config/qc_params_relaxed.csv
 #   ./run_pipeline.sh samples/ALLSAMPLES_metadata.csv "/Volumes/MyDrive/data" 100 config/qc_params_default.csv feature1
+#   ./run_pipeline.sh samples/PEO_samples.csv "/Volumes/MyDrive/data" 100 config/qc_params_default.csv "Cell line" peo
 #
 # ==============================================================================
 
 SAMPLES_CSV="${1:-samples/ALLSAMPLES_metadata.csv}"
-BASE_PATH="${2:-/Volumes/LenovoPS8/FI backup/sc_analysis}"
+BASE_PATH="${2:-/Volumes/LenovoPS8/FIbackup/sc_analysis}"
 BIN_SIZE="${3:-100}"
 QC_CONFIG="${4:-config/qc_params_default.csv}"
 GROUP_COL="${5:-Cell line}"
+PROJECT_NAME="${6:-all_samples}"
 
 # Derived paths
 OBJ_BASE="$BASE_PATH/scAboslute-obj"
-POST_BASE="$BASE_PATH/post-scAbsolute"
-OUT_BASE="$BASE_PATH/all_samples_23july2024/output"
+POST_BASE="$BASE_PATH/analysis_per_sample"
+OUT_BASE="$BASE_PATH/results_${PROJECT_NAME}"
 
 echo "=============================================="
 echo "       Complete Analysis Pipeline"
 echo "=============================================="
 echo ""
 echo "Configuration:"
-echo "  Samples CSV : $SAMPLES_CSV"
-echo "  Base path   : $BASE_PATH"
-echo "  Bin size    : $BIN_SIZE"
-echo "  QC config   : $QC_CONFIG"
-echo "  Group col   : $GROUP_COL"
+echo "  Samples CSV    : $SAMPLES_CSV"
+echo "  Base path      : $BASE_PATH"
+echo "  Bin size       : $BIN_SIZE"
+echo "  QC config      : $QC_CONFIG"
+echo "  Project name   : $PROJECT_NAME"
+echo "  Group col      : $GROUP_COL"
 echo ""
 echo "Data paths:"
-echo "  Input (scAbsolute objects) : $OBJ_BASE"
-echo "  Intermediate (post-scAbsolute) : $POST_BASE"
-echo "  Final output : $OUT_BASE"
+echo "  Input (scAbsolute objects)  : $OBJ_BASE"
+echo "  Per-sample output           : $POST_BASE"
+echo "  Cross-sample results        : $OUT_BASE"
 echo ""
 echo "=============================================="
 echo ""
@@ -164,13 +176,29 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# Step 6: Per-sample dropout heatmaps
+echo ""
+echo "Step 6: Generating per-sample dropout plots..."
+echo "----------------------------------------------"
+Rscript scripts/06_visualize_sample_dropouts.R \
+    "$SAMPLES_CSV" \
+    "$POST_BASE" \
+    "$POST_BASE" \
+    "$BIN_SIZE"
+
+if [ $? -ne 0 ]; then
+    echo "ERROR: Step 6 failed"
+    exit 1
+fi
+
 echo ""
 echo "=============================================="
 echo "          Pipeline Complete"
 echo "=============================================="
 echo ""
-echo "Output location: $OUT_BASE"
-echo "QC summary: $STEP2_OUTPUT"
-echo "Dropout summary: $POST_BASE/dropout_summary_combined.csv"
-echo "Dropout heatmap: $OUT_BASE/dropout_heatmap_$(date +%Y%m%d).pdf"
+echo "Cross-sample results : $OUT_BASE"
+echo "QC summary           : $STEP2_OUTPUT"
+echo "Dropout summary      : $POST_BASE/dropout_summary_combined.csv"
+echo "Dropout heatmap      : $OUT_BASE/dropout_heatmap_$(date +%Y%m%d).pdf"
+echo "Per-sample plots     : $POST_BASE/SLX-*/figures/"
 echo ""

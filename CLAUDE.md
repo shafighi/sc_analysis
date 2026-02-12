@@ -21,9 +21,28 @@ Single-cell copy number analysis pipeline for processing results from scAbsolute
   - `02_combine_outlier_summaries.R` - Aggregate summaries with metadata into combined CSV
   - `03_visualize_summary.R` - Generate publication-ready plots
   - `04_generate_dropout_summaries.R` - Analyze copy number dropouts per cell and chromosome
-  - `05_visualize_dropout_heatmap.R` - Publication-ready dropout frequency heatmap
+  - `05_visualize_dropout_heatmap.R` - Cross-sample dropout frequency heatmap
+  - `06_visualize_sample_dropouts.R` - Per-sample dropout barplots and cell x chromosome heatmaps
 
 - **samples/** - Sample manifest CSVs with metadata (sample ID, cell line, features)
+
+### Directory Structure
+
+```
+{base_path}/
+├── scAboslute-obj/              # Input (scAbsolute RDS objects)
+├── analysis_per_sample/         # Per-sample outputs (steps 1, 4, 6)
+│   ├── SLX-{sample}_{bin}/
+│   │   ├── cellbased_outliers.rds
+│   │   ├── cn_binned.rds
+│   │   ├── figures/
+│   │   └── ...
+│   └── dropout_summary_combined.csv
+└── results_{project_name}/      # Cross-sample outputs (steps 2, 3, 5)
+    ├── output_{config}_{date}.csv
+    ├── *_composition.pdf
+    └── dropout_heatmap_{date}.pdf
+```
 
 ### Data Flow
 
@@ -33,24 +52,31 @@ Output: Filtered objects, quality summaries, heatmap PDFs, aggregated CSV, visua
 ## Running the Pipeline
 
 ```bash
+# Full pipeline via run_pipeline.sh (recommended)
+# Usage: ./run_pipeline.sh [samples_csv] [base_path] [bin_size] [qc_config] [group_col] [project_name]
+./run_pipeline.sh samples/ALLSAMPLES_metadata.csv /path/to/data 100
+./run_pipeline.sh samples/PEO_samples.csv /path/to/data 100 config/qc_params_default.csv "Cell line" peo
+
+# Individual steps (for standalone use):
+
 # Step 1: Generate per-sample outlier summaries
 Rscript scripts/01_generate_outlier_summaries.R \
     samples/ALLSAMPLES_metadata.csv \
     /path/to/scAbsolute-obj \
-    /path/to/output \
+    /path/to/analysis_per_sample \
     100
 
 # Step 2: Combine summaries with metadata
 Rscript scripts/02_combine_outlier_summaries.R \
     samples/ALLSAMPLES_metadata.csv \
-    /output/path \
-    /data/path \
+    /path/to/results_all_samples \
+    /path/to/analysis_per_sample \
     100
 
 # Step 3: Visualize combined summary
 Rscript scripts/03_visualize_summary.R \
-    /output/path/outlier_summary_table_meta_combined.csv \
-    /output/path \
+    /path/to/results_all_samples/output_*.csv \
+    /path/to/results_all_samples \
     feature1 \
     Sample
 
@@ -58,16 +84,23 @@ Rscript scripts/03_visualize_summary.R \
 Rscript scripts/04_generate_dropout_summaries.R \
     samples/ALLSAMPLES_metadata.csv \
     /path/to/scAbsolute-obj \
-    /path/to/output \
+    /path/to/analysis_per_sample \
     100
 
 # Step 5: Visualize dropout heatmap (requires step 4 output)
 Rscript scripts/05_visualize_dropout_heatmap.R \
     samples/ALLSAMPLES_metadata.csv \
-    /path/to/output \
-    /path/to/plots \
+    /path/to/analysis_per_sample \
+    /path/to/results_all_samples \
     100 \
     "Cell line"
+
+# Step 6: Per-sample dropout plots (requires step 4 output)
+Rscript scripts/06_visualize_sample_dropouts.R \
+    samples/ALLSAMPLES_metadata.csv \
+    /path/to/analysis_per_sample \
+    /path/to/analysis_per_sample \
+    100
 ```
 
 ## QC Metrics and Default Thresholds

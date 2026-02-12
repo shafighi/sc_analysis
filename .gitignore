@@ -5,5 +5,9 @@ post-scAbsolute
 post-scAbsolute/*
 all_samples_23july2024
 all_samples_23july2024/*
+analysis_per_sample
+analysis_per_sample/*
+results_*
+results_*/*
 scUnique-obj
 scUnique-obj/*

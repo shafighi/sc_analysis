@@ -23,7 +23,7 @@
 
 args <- commandArgs(trailingOnly = TRUE)
 samples_csv <- if (length(args) >= 1) args[[1]] else NULL
-obj_base    <- if (length(args) >= 2) args[[2]] else "/Volumes/LenovoPS8/FI backup/sc_analysis/post-scAbsolute"
+obj_base    <- if (length(args) >= 2) args[[2]] else "/Volumes/LenovoPS8/FI backup/sc_analysis/analysis_per_sample"
 out_base    <- if (length(args) >= 3) args[[3]] else obj_base
 bin_size    <- if (length(args) >= 4) args[[4]] else "100"
 group_col   <- if (length(args) >= 5) args[[5]] else "Cell line"
@@ -135,46 +135,66 @@ heatmap_data$display_val <- round(heatmap_data$freq_per_cell, 1)
 # Generate publication-ready heatmap
 # ==============================================================================
 
-# Adaptive text color: white on dark tiles, black on light tiles
-max_val <- max(heatmap_data$freq_per_cell, na.rm = TRUE)
+# Use sqrt transform for color scale to handle outlier samples
+# This preserves detail in the low range while still showing high values
+heatmap_data$fill_val <- sqrt(heatmap_data$freq_per_cell)
+
+# Adaptive text color: white on dark tiles, black on light
+# Use a low threshold so text is white on most non-zero tiles
 heatmap_data$text_color <- ifelse(
-  heatmap_data$freq_per_cell > max_val * 0.5, "white", "grey20"
+  heatmap_data$freq_per_cell >= 0.3, "white", "grey40"
 )
 
+# Smart label: integer for >= 10, one decimal for > 0, blank for 0
+heatmap_data$display_val <- ifelse(
+  heatmap_data$freq_per_cell == 0, "",
+  ifelse(heatmap_data$freq_per_cell >= 10,
+         as.character(round(heatmap_data$freq_per_cell)),
+         format(round(heatmap_data$freq_per_cell, 1), nsmall = 1))
+)
+
+# Breaks for the color bar legend (in original scale)
+legend_breaks <- c(0, 5, 20, 50, 100, 200)
+legend_breaks <- legend_breaks[legend_breaks <= max(heatmap_data$freq_per_cell, na.rm = TRUE) * 1.1]
+
 # Build plot
-p <- ggplot(heatmap_data, aes(x = chromosome, y = sample, fill = freq_per_cell)) +
-  geom_tile(color = "white", linewidth = 0.3) +
+p <- ggplot(heatmap_data, aes(x = chromosome, y = sample, fill = fill_val)) +
+  geom_tile(color = "white", linewidth = 0.25) +
   geom_text(aes(label = display_val, color = text_color),
-            size = 2.2, show.legend = FALSE) +
+            size = 2.0, fontface = "bold", show.legend = FALSE) +
   scale_color_identity() +
   scale_fill_viridis(
     option    = "D",
     name      = "Dropouts\nper cell",
-    begin     = 0.05,
+    begin     = 0.02,
     end       = 0.95,
     na.value  = "grey90",
+    breaks    = sqrt(legend_breaks),
+    labels    = legend_breaks,
     guide     = guide_colorbar(
-      barwidth  = 0.6,
-      barheight = 4,
-      title.theme = element_text(size = 7, face = "bold"),
-      label.theme = element_text(size = 6)
+      barwidth  = 0.5,
+      barheight = 3.5,
+      title.theme = element_text(size = 6.5, face = "bold"),
+      label.theme = element_text(size = 5.5)
     )
   ) +
   labs(x = "Chromosome", y = NULL) +
-  theme_minimal(base_size = 8) +
+  theme_minimal(base_size = 7) +
   theme(
-    panel.grid       = element_blank(),
-    panel.background = element_rect(fill = "white", color = NA),
-    plot.background  = element_rect(fill = "white", color = NA),
-    plot.margin      = margin(3, 3, 3, 3, "mm"),
-    axis.text.x      = element_text(size = 7, color = "grey20"),
-    axis.text.y      = element_text(size = 7, color = "grey20"),
-    axis.title.x     = element_text(size = 8, margin = margin(t = 3)),
-    axis.ticks       = element_blank(),
-    legend.position  = "right",
-    legend.margin    = margin(0, 0, 0, 2, "mm"),
-    strip.background = element_rect(fill = "grey92", color = NA),
-    strip.text       = element_text(size = 7, face = "bold", margin = margin(2, 0, 2, 0))
+    panel.grid          = element_blank(),
+    panel.background    = element_rect(fill = "white", color = NA),
+    plot.background     = element_rect(fill = "white", color = NA),
+    panel.spacing       = unit(1, "pt"),
+    plot.margin         = margin(2, 2, 2, 2, "mm"),
+    axis.text.x         = element_text(size = 6, color = "grey20"),
+    axis.text.y         = element_text(size = 6, color = "grey20"),
+    axis.title.x        = element_text(size = 7, margin = margin(t = 2)),
+    axis.ticks          = element_blank(),
+    legend.position     = "right",
+    legend.margin       = margin(0, 0, 0, 1, "mm"),
+    strip.background    = element_rect(fill = "grey92", color = NA),
+    strip.text.y.right  = element_text(size = 6, face = "bold", angle = 0,
+                                       margin = margin(0, 1, 0, 1, "mm"))
   )
 
 # Add faceting if group column exists
@@ -192,8 +212,13 @@ n_groups  <- if (!is.null(group_col) && group_col %in% names(heatmap_data)) {
   length(unique(heatmap_data[[group_col]]))
 } else { 0 }
 
-plot_height <- max(1.5, n_samples * 0.28 + n_groups * 0.15 + 0.6)
-plot_width  <- 5.5
+# Find widest strip label to size the right margin
+max_label_len <- if (!is.null(group_col) && group_col %in% names(heatmap_data)) {
+  max(nchar(as.character(unique(heatmap_data[[group_col]]))), na.rm = TRUE)
+} else { 0 }
+
+plot_height <- max(1.5, n_samples * 0.25 + n_groups * 0.08 + 0.5)
+plot_width  <- 5.5 + max(0, (max_label_len - 6) * 0.06)
 
 # Save
 run_date <- format(Sys.time(), "%Y%m%d")
