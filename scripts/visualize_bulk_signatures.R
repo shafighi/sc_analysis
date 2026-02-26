@@ -4,8 +4,8 @@ library(tibble)
 library(ggplot2)
 library(ggforce)
 library(reshape2)
-signature <- read.csv("../../Volumes/Fl/bulk_sc_siganture_quantification_thresholded_activities.tsv",sep="\t")
-annotation <- read.csv("../../Volumes/Fl/Paired Cell Lines Summary Sheet - Sheet1.csv",sep=",")
+signature <- read.csv("/Volumes/LenovoPS8/FIbackup/bulk_sc_siganture_quantification_thresholded_activities.copied.tsv",sep="\t")
+annotation <- read.csv("/Volumes/LenovoPS8/FIbackup/Paired Cell Lines Summary Sheet - Sheet1.csv",sep=",")
 annotation <- annotation[,c("SLX","Cell.Line","Cell.Line.Passage","SINCEL")]
 # Remove duplicates in df based on SINCEL, keeping the first occurrence
 annotation <- annotation %>% distinct(SINCEL, .keep_all = TRUE)

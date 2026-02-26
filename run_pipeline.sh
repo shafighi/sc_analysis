@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Run the complete analysis pipeline (Steps 1-5)
+# Run the complete analysis pipeline (Steps 1-7)
 # ==============================================================================
 #
 # Usage: ./run_pipeline.sh [samples_csv] [base_path] [bin_size] [qc_config] [group_col] [project_name]
@@ -12,6 +12,7 @@
 #   4 - Generate per-sample dropout summaries
 #   5 - Cross-sample dropout heatmap
 #   6 - Per-sample dropout barplots and heatmaps
+#   7 - Generate read distribution summaries
 #
 # Arguments:
 #   samples_csv - CSV file with sample IDs (default: samples/ALLSAMPLES_metadata.csv)
@@ -191,6 +192,21 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# Step 7: Generate read distribution summaries
+echo ""
+echo "Step 7: Generating read distribution summaries..."
+echo "----------------------------------------------"
+Rscript scripts/07_generate_read_distribution.R \
+    "$SAMPLES_CSV" \
+    "$OBJ_BASE" \
+    "$POST_BASE" \
+    "$BIN_SIZE"
+
+if [ $? -ne 0 ]; then
+    echo "ERROR: Step 7 failed"
+    exit 1
+fi
+
 echo ""
 echo "=============================================="
 echo "          Pipeline Complete"
@@ -201,4 +217,5 @@ echo "QC summary           : $STEP2_OUTPUT"
 echo "Dropout summary      : $POST_BASE/dropout_summary_combined.csv"
 echo "Dropout heatmap      : $OUT_BASE/dropout_heatmap_$(date +%Y%m%d).pdf"
 echo "Per-sample plots     : $POST_BASE/SLX-*/figures/"
+echo "Read distribution    : $POST_BASE/read_distribution/ (summary) and $POST_BASE/SLX-*/figures/ (plots)"
 echo ""
