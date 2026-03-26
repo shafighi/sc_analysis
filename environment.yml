@@ -1,0 +1,77 @@
+name: sc_analysis
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+
+dependencies:
+  - r-base=4.3
+  - r-essentials
+
+  # --- CRAN packages ---
+  - r-ggplot2
+  - r-dplyr
+  - r-tidyr
+  - r-tibble
+  - r-purrr
+  - r-readr
+  - r-magrittr
+  - r-forcats
+  - r-stringr
+  - r-reshape2
+  - r-reshape
+  - r-data.table
+  - r-ggbeeswarm
+  - r-ggpubr
+  - r-robustbase
+  - r-viridis
+  - r-rcolorbrewer
+  - r-circlize
+  - r-complexheatmap
+  - r-pheatmap
+  - r-dendextend
+  - r-ape
+  - r-cluster
+  - r-fastcluster
+  - r-foreach
+  - r-doparallel
+  - r-domc
+  - r-future
+  - r-future.apply
+  - r-matrixstats
+  - r-nmf
+  - r-nnls
+  - r-quadprog
+  - r-corrplot
+  - r-cairo
+  - r-mclust
+  - r-mass
+  - r-nnet
+  - r-zoo
+  - r-proxy
+  - r-infotheo
+  - r-bigmemory
+  - r-caret
+  - r-randomforest
+  - r-e1071
+  - r-glmnet
+  - r-rtsne
+  - r-flexmix
+  - r-tictoc
+  - r-knitr
+  - r-kableextra
+  - r-gt
+  - r-ggforce
+  - r-patchwork
+  - r-readxl
+  - r-gridextra
+  - r-reticulate
+
+  # --- Bioconductor packages ---
+  - bioconductor-biobase
+  - bioconductor-qdnaseq
+  - bioconductor-genomicranges
+  - bioconductor-s4vectors
+  - bioconductor-iranges
+  - bioconductor-genomicalignments
+  - bioconductor-rsamtools
