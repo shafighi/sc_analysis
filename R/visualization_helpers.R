@@ -6,9 +6,9 @@ plotCopynumberHeatmap <- function(object, file=NULL,
                                           har=NULL, useCopynumber=TRUE,
                                           show_cell_names=TRUE, abbreviate_cell_names=TRUE, show_chromosome_names=TRUE,
                                           use_cell_names="", fontsize_row=9, fontsize_col=9, fontsize_chr=12,
-                                          fontsize_leg_title=18, fontsize_leg_label=14, 
+                                          fontsize_leg_title=18, fontsize_leg_label=14,
                                           row_title_gp=13, column_title_gp=13,
-                                          column_title="Chromosome", bottom_annotation=NULL,
+                                          column_title=NULL, bottom_annotation=NULL,
                                           show_heatmap_legend=TRUE, scale_copynumber=1.0,
                                           raster_device="tiff",
                                           colorMap="MSK", row_title, ...){
@@ -94,7 +94,11 @@ plotCopynumberHeatmap <- function(object, file=NULL,
   subchr = subchr[which(!unlist(list_of_nan_chromosomes))]
   Y <- do.call("cbind", subsets)
   chr <- unlist(subchr)
-  
+
+  if (is.null(column_title)) {
+    column_title <- as.character(levels(chr)[levels(chr) %in% as.character(chr)])
+  }
+
   colnames(Y) = NULL
   ## create clustering of cells ====
   if(is.null(cluster_rows)){

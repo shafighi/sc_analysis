@@ -8,7 +8,7 @@
 #   - Cell x Chromosome dropout heatmap, faceted by QC status (PDF)
 #   - Well-plate layout heatmap of total dropouts per cell (PNG)
 #
-# Requires step 04 output (cn_binned.rds, cell_chr_dropout.rds).
+# Requires step 04 output (cn_binned.rds, dropout_per_cell_chr.rds).
 # Optionally reads cell_pos_dropout.rds for plate layout; if absent,
 # derives well positions from cell names (e.g. "..._A12" -> row A, col 12).
 #
@@ -373,7 +373,7 @@ for (i in seq_len(nrow(samples_tbl))) {
   out_dir    <- file.path(out_base, sample_obj)
 
   cn_binned_path     <- file.path(sample_dir, "cn_binned.rds")
-  cell_chr_drop_path <- file.path(sample_dir, "cell_chr_dropout.rds")
+  cell_chr_drop_path <- file.path(sample_dir, "dropout_per_cell_chr.rds")
 
   if (!file.exists(cn_binned_path) || !file.exists(cell_chr_drop_path)) {
     warning("Step 04 output not found for ", sample_id, " - skipping.")

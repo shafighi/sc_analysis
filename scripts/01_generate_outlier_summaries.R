@@ -13,14 +13,28 @@
 #   bin_size    - Bin size (default: 100)
 #   qc_config   - QC parameters config file (default: config/qc_params_default.csv)
 #
-# Output per sample:
-#   - outlier_summary.rds      : Summary statistics (RDS format)
-#   - outlier_summary.csv      : Summary with QC criteria columns
-#   - qc_criteria_used.csv     : Full QC parameters used
-#   - cellbased_outliers.rds   : Per-cell outlier status
-#   - {sample}_non_outlier.rds : Filtered object with good quality cells
-#   - normals.rds              : Normal (diploid) cells
-#   - heatmap_clustered.pdf    : Copy number heatmap
+# Output per sample (in out_base/SLX-{sample}_{bin}/):
+#   - qc_summary.csv                        : Per-sample QC counts (replicating, outliers, PassedQC)
+#   - qc_params.csv                         : QC thresholds used
+#   - qc_cell_labels.rds                    : Per-cell QC flags (replicating, mapd/gini/alpha outlier, etc.)
+#   - cells_passedqc.rds                    : QDNAseq object containing PassedQC cells only
+#   - cells_normal.rds                      : Subset of PassedQC cells classified as diploid/normal
+#   - figures/heatmap_clustered.pdf         : CN heatmap of all PassedQC cells
+#   - figures/cn_profiles_passedqc.pdf      : Per-cell CN profiles, one page per PassedQC cell
+#   - figures/cn_profiles_outliers.pdf      : Per-cell CN profiles, one page per outlier cell
+#   - figures/normal_dist_alpha.pdf         : Alpha distribution with filtering cutoffs
+#   - figures/cellcycle.jpg                 : Cell cycle activity (cycling_activity vs replicating)
+#   - figures/cell_qc.jpg                   : Alpha coloured by outlier status
+#   - figures/dmapd_cutoff.jpg              : MAPD coloured by outlier status
+#   - figures/dgini_cutoff.jpg              : Gini coloured by outlier status
+#   - figures/rpc_usedreads_ploidy_replicatings.jpg : RPC vs reads coloured by ploidy
+#   - figures/rpc_usedreads_outliers_replicatings.jpg : RPC vs reads coloured by outlier
+#   - figures/alpha_rpc_ploidy_replicatings.jpg : Alpha vs RPC coloured by ploidy
+#   - figures/alpha_rpc_replicating_all.jpg : Alpha vs RPC coloured by replicating
+#   - figures/alpha_used_reads.jpg          : Alpha vs used reads coloured by replicating
+#   - figures/total.reads_all.pdf           : Total reads distribution (all cells)
+#   - figures/total.reads_non_replicating.pdf : Total reads distribution (non-replicating)
+#   - figures/total.reads_non_outliers.pdf  : Total reads distribution (PassedQC only)
 #
 # ==============================================================================
 
@@ -36,6 +50,7 @@ library(dplyr)
 source("R/core.R")
 source("R/visualization_helpers.R")
 source("R/summary_helpers.R")
+source("R/sc_visualization.R")
 
 # ==============================================================================
 # Load QC Parameters from config file
@@ -133,10 +148,10 @@ for (i in seq_len(nrow(samples_tbl))) {
       normal_threshold = QC_PARAMS$normal_threshold,
       # Output paths
       save_results = TRUE,
-      outlier_cellbase_path = file.path(output_dir, "cellbased_outliers.rds"),
-      non_outlier_obj_path  = file.path(output_dir, paste0(sample_id, "_non_outlier.rds")),
-      outlier_summary_path  = file.path(output_dir, "outlier_summary.rds"),
-      normals_path          = file.path(output_dir, "normals.rds")
+      outlier_cellbase_path = file.path(output_dir, "qc_cell_labels.rds"),
+      non_outlier_obj_path  = file.path(output_dir, "cells_passedqc.rds"),
+      outlier_summary_path  = NULL,
+      normals_path          = file.path(output_dir, "cells_normal.rds")
     )
   }, error = function(e) { warning("QC failed for ", sample_id, ": ", e$message); NULL })
 
@@ -145,19 +160,22 @@ for (i in seq_len(nrow(samples_tbl))) {
   # Save QC criteria in separate file (for reference)
   qc_criteria_df <- as.data.frame(res$qc_criteria)
   qc_criteria_df$config_file <- basename(qc_config)
-  write.csv(qc_criteria_df, file.path(output_dir, "qc_criteria_used.csv"), row.names = FALSE)
+  write.csv(qc_criteria_df, file.path(output_dir, "qc_params.csv"), row.names = FALSE)
 
-  # Save summary WITHOUT QC columns (QC params go in header of combined output)
-  write.csv(res$summary_df, file.path(output_dir, "outlier_summary.csv"), row.names = FALSE)
+  write.csv(res$summary_df, file.path(output_dir, "qc_summary.csv"), row.names = FALSE)
 
-  # Generate heatmap if valid data exists
+  # === Generate figures ===
+  figures_dir <- file.path(output_dir, "figures")
+  dir.create(figures_dir, recursive = TRUE, showWarnings = FALSE)
+
+  # 1. CN heatmap (PassedQC cells)
   if (!is.null(res$non_outlier_object)) {
     cn_mat <- tryCatch(res$non_outlier_object@assayData$copynumber, error = function(e) NULL)
     if (!is.null(cn_mat) && ncol(cn_mat) > 0 && any(!is.na(cn_mat))) {
-      tryCatch({
+      tryCatch(
         plotCopynumberHeatmap(
           res$non_outlier_object,
-          file = file.path(output_dir, "heatmap_clustered.pdf"),
+          file = file.path(figures_dir, "heatmap_clustered.pdf"),
           cluster_rows = "ploidy", row_split = NULL, cutoff = 10,
           show_unobserved_states = TRUE, har = NULL, useCopynumber = TRUE,
           show_cell_names = FALSE, abbreviate_cell_names = TRUE,
@@ -165,10 +183,62 @@ for (i in seq_len(nrow(samples_tbl))) {
           fontsize_row = 9, fontsize_col = 9, fontsize_chr = 12,
           fontsize_leg_title = 18, fontsize_leg_label = 14,
           row_title = sample_id
-        )
-      }, error = function(e) warning("Heatmap failed for ", sample_id, ": ", e$message))
+        ),
+        error = function(e) warning("Heatmap failed for ", sample_id, ": ", e$message)
+      )
     }
   }
+
+  # 2. Per-cell CN profiles — PassedQC cells
+  if (!is.null(res$non_outlier_object) && ncol(res$non_outlier_object) > 0) {
+    tryCatch({
+      pdf(file.path(figures_dir, "cn_profiles_passedqc.pdf"), width = 11, height = 3)
+      for (i in seq_len(ncol(res$non_outlier_object))) {
+        cell_obj  <- res$non_outlier_object[, i]
+        cell_name <- Biobase::pData(cell_obj)$name[1]
+        tryCatch(
+          plot(cell_obj, main = cell_name),
+          error = function(e) message("  Skipping cell ", cell_name, ": ", e$message)
+        )
+      }
+      dev.off()
+    }, error = function(e) {
+      try(dev.off(), silent = TRUE)
+      warning("CN profiles (PassedQC) failed for ", sample_id, ": ", e$message)
+    })
+  }
+
+  # 3. Per-cell CN profiles — outlier cells
+  passedqc_names <- Biobase::pData(res$non_outlier_object)$name
+  outlier_mask   <- !Biobase::pData(object)$name %in% passedqc_names
+  if (sum(outlier_mask) > 0) {
+    outlier_object <- object[, outlier_mask]
+    tryCatch({
+      pdf(file.path(figures_dir, "cn_profiles_outliers.pdf"), width = 11, height = 3)
+      for (i in seq_len(ncol(outlier_object))) {
+        cell_obj  <- outlier_object[, i]
+        cell_name <- Biobase::pData(cell_obj)$name[1]
+        tryCatch(
+          plot(cell_obj, main = cell_name),
+          error = function(e) message("  Skipping cell ", cell_name, ": ", e$message)
+        )
+      }
+      dev.off()
+    }, error = function(e) {
+      try(dev.off(), silent = TRUE)
+      warning("CN profiles (outliers) failed for ", sample_id, ": ", e$message)
+    })
+  }
+
+  # 4. QC metric plots (alpha distribution, gini, mapd, rpc, cell cycle)
+  tryCatch({
+    iq_plot <- res$iq
+    if (is.data.frame(iq_plot$dmapd.outlier)) iq_plot$dmapd.outlier <- iq_plot$dmapd.outlier[, 1]
+    if (is.data.frame(iq_plot$dgini.outlier)) iq_plot$dgini.outlier <- iq_plot$dgini.outlier[, 1]
+    if (is.data.frame(iq_plot$alpha.outlier)) iq_plot$alpha.outlier <- iq_plot$alpha.outlier[, 1]
+    general_analysis_plots(res$df, iq_plot, figures_dir)
+  }, error = function(e) warning("QC metric plots failed for ", sample_id, ": ", e$message))
+
   message("Done: ", sample_id)
 }
 

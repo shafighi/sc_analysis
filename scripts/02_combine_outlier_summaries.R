@@ -53,16 +53,13 @@ for (i in seq_len(nrow(samples_tbl))) {
   sample_obj <- paste0("SLX-", sample_id, "_", bin_size)
   sample_dir <- file.path(obj_base, sample_obj)
 
-  # Read summary (RDS or CSV)
-  csv_path <- file.path(sample_dir, "outlier_summary.csv")
-  rds_path <- file.path(sample_dir, "outlier_summary.rds")
-  qc_csv_path <- file.path(sample_dir, "qc_criteria_used.csv")
+  # Read summary
+  csv_path <- file.path(sample_dir, "qc_summary.csv")
+  qc_csv_path <- file.path(sample_dir, "qc_params.csv")
 
   summary <- NULL
   if (file.exists(csv_path)) {
     summary <- tryCatch(read.csv(csv_path, stringsAsFactors = FALSE), error = function(e) NULL)
-  } else if (file.exists(rds_path)) {
-    summary <- tryCatch(as.data.frame(readRDS(rds_path)), error = function(e) NULL)
   }
 
   if (is.null(summary)) {

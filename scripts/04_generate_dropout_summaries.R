@@ -4,7 +4,7 @@
 # ==============================================================================
 #
 # Analyzes copy number dropouts (bins with segVal == 0) per cell and chromosome.
-# Requires step 01 output (cellbased_outliers.rds) for QC status assignment.
+# Requires step 01 output (qc_cell_labels.rds) for QC status assignment.
 #
 # Usage:
 #   Rscript scripts/04_generate_dropout_summaries.R <samples_csv> [obj_base] [out_base] [bin_size]
@@ -16,9 +16,9 @@
 #   bin_size    - Bin size (default: 100)
 #
 # Per-sample output (in out_base/SLX-{sample}_{bin_size}/):
-#   - cn_binned.rds            : Long-format copy number data
-#   - cell_chr_dropout.rds     : Dropout counts per cell x chromosome (with status)
-#   - cell_dropout_status.csv  : Per-cell total dropout count + QC status
+#   - cn_binned.rds              : Long-format copy number data (bin-level, all cells)
+#   - dropout_per_cell_chr.rds   : Dropout counts per cell x chromosome (with QC status)
+#   - dropout_per_cell.csv       : Per-cell total dropout count + QC status
 #
 # Combined output (in out_base/):
 #   - dropout_summary_combined.csv : Dropout freq per cell by sample x chromosome
@@ -75,10 +75,10 @@ for (i in seq_len(nrow(samples_tbl))) {
     next
   }
 
-  # cellbased_outliers from step 01
-  outlier_path <- file.path(output_dir, "cellbased_outliers.rds")
+  # qc_cell_labels from step 01
+  outlier_path <- file.path(output_dir, "qc_cell_labels.rds")
   if (!file.exists(outlier_path)) {
-    warning("cellbased_outliers.rds not found for ", sample_id,
+    warning("qc_cell_labels.rds not found for ", sample_id,
             " - run step 01 first. Skipping.")
     next
   }
@@ -112,13 +112,13 @@ for (i in seq_len(nrow(samples_tbl))) {
 
   # Save per-sample outputs
   saveRDS(res$cn_binned, file.path(output_dir, "cn_binned.rds"))
-  saveRDS(res$cell_chr_dropout, file.path(output_dir, "cell_chr_dropout.rds"))
+  saveRDS(res$cell_chr_dropout, file.path(output_dir, "dropout_per_cell_chr.rds"))
 
   # Per-cell summary: total dropouts + status
   cell_dropout_status <- res$cell_chr_dropout %>%
     group_by(cell, status) %>%
     summarise(total_dropout = sum(dropout_count, na.rm = TRUE), .groups = "drop")
-  write.csv(cell_dropout_status, file.path(output_dir, "cell_dropout_status.csv"),
+  write.csv(cell_dropout_status, file.path(output_dir, "dropout_per_cell.csv"),
             row.names = FALSE)
 
   # Aggregate for combined summary: dropout freq per chromosome (normalized by cell count)
