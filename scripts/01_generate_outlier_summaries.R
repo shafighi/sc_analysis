@@ -35,6 +35,7 @@
 #   - figures/total.reads_all.pdf           : Total reads distribution (all cells)
 #   - figures/total.reads_non_replicating.pdf : Total reads distribution (non-replicating)
 #   - figures/total.reads_non_outliers.pdf  : Total reads distribution (PassedQC only)
+#   - figures/qc_summary_panel.pdf          : Compact publication-quality QC panel (all metrics, one page)
 #
 # ==============================================================================
 
@@ -230,7 +231,7 @@ for (i in seq_len(nrow(samples_tbl))) {
     })
   }
 
-  # 4. QC metric plots (alpha distribution, gini, mapd, rpc, cell cycle)
+  # 4. QC metric plots (alpha distribution, gini, mapd, rpc, cell cycle) — individual files
   tryCatch({
     iq_plot <- res$iq
     if (is.data.frame(iq_plot$dmapd.outlier)) iq_plot$dmapd.outlier <- iq_plot$dmapd.outlier[, 1]
@@ -238,6 +239,18 @@ for (i in seq_len(nrow(samples_tbl))) {
     if (is.data.frame(iq_plot$alpha.outlier)) iq_plot$alpha.outlier <- iq_plot$alpha.outlier[, 1]
     general_analysis_plots(res$df, iq_plot, figures_dir)
   }, error = function(e) warning("QC metric plots failed for ", sample_id, ": ", e$message))
+
+  # 5. Compact publication-quality QC summary panel
+  tryCatch(
+    plot_qc_summary_panel(
+      df         = res$df,
+      iq         = res$iq,
+      summary_df = res$summary_df,
+      sample_id  = sample_id,
+      outfile    = file.path(figures_dir, "qc_summary_panel.pdf")
+    ),
+    error = function(e) warning("QC summary panel failed for ", sample_id, ": ", e$message)
+  )
 
   message("Done: ", sample_id)
 }

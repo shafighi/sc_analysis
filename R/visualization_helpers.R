@@ -798,13 +798,178 @@ plot_heatmap_t <- function(object,OUTPUT,SAMPLENAME,post_name,row_cluster){
   cn = object@assayData$copynumber
   df_no_na <- na.omit(cn)
   df_no_na = t(df_no_na)
-  
+
   png(paste0(OUTPUT,"/",SAMPLENAME,"_",post_name,".png"), width = 7000, height = 3500, res = 300)
-  
-  pheatmap(df_no_na, 
+
+  pheatmap(df_no_na,
            cluster_rows=row_cluster,
            cluster_cols=TRUE,
-           display_numbers = FALSE, 
+           display_numbers = FALSE,
            number_color="black",labels_row = "")
   dev.off()
+}
+
+
+# ==============================================================================
+# Publication-quality QC summary panel
+# One-page compact figure combining all per-sample QC metrics.
+#
+# Arguments:
+#   df         - full pData data.frame (all cells, from res$df)
+#   iq         - filtered data.frame (non-replicating, post-RPC, from res$iq)
+#   summary_df - single-row count summary (from res$summary_df)
+#   sample_id  - sample name used as figure title
+#   outfile    - output PDF path
+# ==============================================================================
+plot_qc_summary_panel <- function(df, iq, summary_df, sample_id, outfile) {
+  require(ggplot2,    quietly = TRUE)
+  require(patchwork,  quietly = TRUE)
+  require(ggbeeswarm, quietly = TRUE)
+  require(dplyr,      quietly = TRUE)
+  require(tidyr,      quietly = TRUE)
+
+  # --- Normalise data.frame columns that qc_* may return as 1-col data.frames ---
+  flatten_col <- function(x) if (is.data.frame(x)) x[, 1] else x
+  iq$dmapd.outlier <- flatten_col(iq$dmapd.outlier)
+  iq$dgini.outlier <- flatten_col(iq$dgini.outlier)
+  iq$alpha.outlier <- flatten_col(iq$alpha.outlier)
+  if (!"outlier" %in% names(iq))
+    iq$outlier <- iq$dmapd.outlier | iq$dgini.outlier | iq$alpha.outlier
+  iq$outlier <- flatten_col(iq$outlier)
+
+  # Use alpha.select if present, else hmm.alpha
+  alpha_vals <- if ("alpha.select" %in% names(iq)) iq$alpha.select else iq$hmm.alpha
+  iq$alpha_val <- alpha_vals
+  alpha_all    <- if ("hmm.alpha" %in% names(df)) df$hmm.alpha else df$alpha.select
+  alpha_all    <- alpha_all[!is.na(alpha_all) & alpha_all > 0]
+
+  # --- Shared theme -----------------------------------------------------------
+  base_sz <- 8
+  pub_theme <- theme_bw(base_size = base_sz) +
+    theme(
+      plot.title       = element_text(size = base_sz + 1, face = "bold", margin = margin(b = 3)),
+      axis.title       = element_text(size = base_sz),
+      axis.text        = element_text(size = base_sz - 1),
+      legend.text      = element_text(size = base_sz - 1),
+      legend.title     = element_text(size = base_sz),
+      legend.key.size  = unit(0.35, "cm"),
+      legend.margin    = margin(0, 0, 0, 0),
+      panel.grid.minor = element_blank(),
+      plot.margin      = margin(4, 6, 4, 6)
+    )
+
+  # Colour palette
+  col_pass <- "#2166AC"
+  col_fail <- "#D6604D"
+  col_rep  <- "#F4A742"
+  col_norm <- "#4DAC26"
+  outlier_scale <- scale_color_manual(
+    values = c("FALSE" = col_pass, "TRUE" = col_fail),
+    labels = c("Pass", "Outlier"), name = NULL
+  )
+
+  # --- P1: Cell category bar chart -------------------------------------------
+  cat_levels <- c(
+    "Replicating",
+    "Replicating(low-RPC)",
+    "Outliers(RPC)",
+    "Outliers(Alpha/Mapd/Gini,post-RPC)",
+    "PassedQC(incl.Normal)",
+    "Normal"
+  )
+  cat_colors <- c(
+    "Replicating"                           = col_rep,
+    "Replicating(low-RPC)"                  = "#FDAE6B",
+    "Outliers(RPC)"                         = "#FC8D59",
+    "Outliers(Alpha/Mapd/Gini,post-RPC)"    = col_fail,
+    "PassedQC(incl.Normal)"                 = col_pass,
+    "Normal"                                = col_norm
+  )
+  cats <- summary_df %>%
+    tidyr::pivot_longer(everything(), names_to = "Category", values_to = "Count") %>%
+    dplyr::filter(Category %in% cat_levels) %>%
+    dplyr::mutate(Category = factor(Category, levels = rev(cat_levels)))
+
+  p1 <- ggplot(cats, aes(x = Count, y = Category, fill = Category)) +
+    geom_col(width = 0.65) +
+    geom_text(aes(label = Count), hjust = -0.15, size = 2.5, fontface = "bold") +
+    scale_fill_manual(values = cat_colors) +
+    scale_x_continuous(expand = expansion(mult = c(0, 0.18))) +
+    labs(title = "Cell categories", x = "Cell count", y = NULL) +
+    pub_theme +
+    theme(legend.position = "none",
+          axis.text.y = element_text(size = base_sz - 1))
+
+  # --- P2: Cycling activity ---------------------------------------------------
+  p2 <- ggplot(df, aes(x = factor(replicating, labels = c("Non-rep.", "Replicating")),
+                        y = cycling_activity, color = replicating)) +
+    geom_quasirandom(size = 0.6, alpha = 0.65, bandwidth = 0.3) +
+    scale_color_manual(values = c("FALSE" = col_pass, "TRUE" = col_rep)) +
+    labs(title = "Cycling activity", x = NULL, y = "Cycling activity") +
+    pub_theme +
+    theme(legend.position = "none")
+
+  # --- P3: Alpha distribution (all cells) ------------------------------------
+  lnorm_cutoff <- exp(mean(log(alpha_all)) + 1.5 * sd(log(alpha_all)))
+  p3 <- ggplot(data.frame(a = alpha_all), aes(x = a)) +
+    geom_histogram(aes(y = after_stat(density)), bins = 55,
+                   fill = col_pass, color = "white", alpha = 0.75, linewidth = 0.2) +
+    geom_density(color = "grey20", linewidth = 0.4, adjust = 1.2) +
+    geom_vline(xintercept = lnorm_cutoff, color = col_fail,
+               linetype = "dashed", linewidth = 0.7) +
+    annotate("text", x = lnorm_cutoff, y = Inf,
+             label = sprintf("  %.3f", lnorm_cutoff),
+             hjust = 0, vjust = 1.4, size = 2.3, color = col_fail) +
+    labs(title = expression(bold(alpha)~"distribution (all cells)"),
+         x = expression(alpha), y = "Density") +
+    pub_theme
+
+  # --- P4: MAPD residual scatter ----------------------------------------------
+  p4 <- ggplot(iq, aes(x = 1 / rpc, y = dmapd, color = as.character(dmapd.outlier))) +
+    geom_point(size = 0.55, alpha = 0.7) +
+    outlier_scale +
+    labs(title = "MAPD (residual vs 1/RPC)", x = "1 / RPC", y = "MAPD residual") +
+    pub_theme +
+    theme(legend.position = c(0.85, 0.15),
+          legend.background = element_rect(fill = alpha("white", 0.7), color = NA))
+
+  # --- P5: Gini residual scatter ----------------------------------------------
+  p5 <- ggplot(iq, aes(x = rpc, y = dgini, color = as.character(dgini.outlier))) +
+    geom_point(size = 0.55, alpha = 0.7) +
+    outlier_scale +
+    labs(title = "Gini (residual vs RPC)", x = "RPC", y = "Gini residual") +
+    pub_theme +
+    theme(legend.position = c(0.85, 0.85),
+          legend.background = element_rect(fill = alpha("white", 0.7), color = NA))
+
+  # --- P6: Alpha vs RPC (non-replicating, post-RPC) ---------------------------
+  p6 <- ggplot(iq, aes(x = rpc, y = alpha_val, color = as.character(alpha.outlier))) +
+    geom_point(size = 0.55, alpha = 0.7) +
+    outlier_scale +
+    labs(title = expression(bold(alpha)~"vs RPC (non-replicating)"),
+         x = "RPC", y = expression(alpha)) +
+    pub_theme +
+    theme(legend.position = c(0.85, 0.85),
+          legend.background = element_rect(fill = alpha("white", 0.7), color = NA))
+
+  # --- Assemble with patchwork ------------------------------------------------
+  panel <- (p1 | p2 | p3) / (p4 | p5 | p6) +
+    plot_annotation(
+      title    = paste0("QC Summary \u2014 Sample ", sample_id),
+      subtitle = paste0(
+        nrow(df), " total cells  |  ",
+        sum(df$replicating, na.rm = TRUE), " replicating  |  ",
+        as.integer(summary_df[["PassedQC(incl.Normal)"]]), " PassedQC  |  ",
+        as.integer(summary_df[["Normal"]]), " normal"
+      ),
+      theme = theme(
+        plot.title    = element_text(size = 11, face = "bold", hjust = 0),
+        plot.subtitle = element_text(size = 8.5, color = "grey35", hjust = 0,
+                                     margin = margin(b = 6))
+      )
+    ) &
+    theme(plot.margin = margin(4, 6, 4, 6))
+
+  ggsave(outfile, panel, width = 13, height = 7.5, dpi = 300, device = cairo_pdf)
+  invisible(panel)
 }
