@@ -821,10 +821,14 @@ plot_heatmap_t <- function(object,OUTPUT,SAMPLENAME,post_name,row_cluster){
 #   sample_id  - sample name used as figure title
 #   outfile    - output PDF path
 # ==============================================================================
-plot_qc_summary_panel <- function(df, iq, summary_df, sample_id, outfile) {
+plot_qc_summary_panel <- function(df, iq, summary_df, sample_id, outfile,
+                                   plate_heatmap_path = NULL,
+                                   cn_heatmap_path    = NULL,
+                                   condition          = NULL) {
   require(ggplot2,    quietly = TRUE)
   require(patchwork,  quietly = TRUE)
   require(ggbeeswarm, quietly = TRUE)
+  require(grid,       quietly = TRUE)
   require(dplyr,      quietly = TRUE)
   require(tidyr,      quietly = TRUE)
 
@@ -844,132 +848,324 @@ plot_qc_summary_panel <- function(df, iq, summary_df, sample_id, outfile) {
   alpha_all    <- alpha_all[!is.na(alpha_all) & alpha_all > 0]
 
   # --- Shared theme -----------------------------------------------------------
-  base_sz <- 8
+  base_sz <- 7.5
   pub_theme <- theme_bw(base_size = base_sz) +
     theme(
-      plot.title       = element_text(size = base_sz + 1, face = "bold", margin = margin(b = 3)),
-      axis.title       = element_text(size = base_sz),
-      axis.text        = element_text(size = base_sz - 1),
-      legend.text      = element_text(size = base_sz - 1),
-      legend.title     = element_text(size = base_sz),
-      legend.key.size  = unit(0.35, "cm"),
-      legend.margin    = margin(0, 0, 0, 0),
-      panel.grid.minor = element_blank(),
-      plot.margin      = margin(4, 6, 4, 6)
+      plot.title        = element_text(size = base_sz + 0.5, face = "bold",
+                                       margin = margin(b = 2)),
+      axis.title        = element_text(size = base_sz - 0.5),
+      axis.text         = element_text(size = base_sz - 1.5),
+      legend.text       = element_text(size = base_sz - 1.5),
+      legend.title      = element_text(size = base_sz - 1),
+      legend.key.size   = unit(0.3, "cm"),
+      legend.margin     = margin(0, 0, 0, 0),
+      legend.spacing    = unit(0, "cm"),
+      panel.grid.minor  = element_blank(),
+      panel.grid.major  = element_line(color = "grey92", linewidth = 0.3),
+      panel.border      = element_rect(color = "grey75", linewidth = 0.4),
+      plot.margin       = margin(3, 5, 3, 5),
+      strip.background  = element_rect(fill = "grey95", color = "grey75"),
+      strip.text        = element_text(size = base_sz - 1)
     )
+
+  in_legend <- theme(
+    legend.position      = c(0.98, 0.98),
+    legend.justification = c(1, 1),
+    legend.background    = element_rect(fill = alpha("white", 0.8), color = "grey85",
+                                        linewidth = 0.3)
+  )
 
   # Colour palette
   col_pass <- "#2166AC"
   col_fail <- "#D6604D"
-  col_rep  <- "#F4A742"
+  col_rep  <- "#E08010"
   col_norm <- "#4DAC26"
+  col_borderline <- "#CC79A7"
   outlier_scale <- scale_color_manual(
     values = c("FALSE" = col_pass, "TRUE" = col_fail),
     labels = c("Pass", "Outlier"), name = NULL
   )
 
-  # --- P1: Cell category bar chart -------------------------------------------
+  # ── P1: Cell category horizontal bar chart ──────────────────────────────────
   cat_levels <- c(
     "Replicating",
     "Replicating(low-RPC)",
     "Outliers(RPC)",
     "Outliers(Alpha/Mapd/Gini,post-RPC)",
+    "Borderline",
     "PassedQC(incl.Normal)",
     "Normal"
+  )
+  cat_short <- c(
+    "Replicating"                        = "Replicating",
+    "Replicating(low-RPC)"               = "Replic. (low RPC)",
+    "Outliers(RPC)"                      = "Outlier (RPC)",
+    "Outliers(Alpha/Mapd/Gini,post-RPC)" = "Outlier (\u03b1/MAPD/Gini)",
+    "Borderline"                         = "Borderline (review)",
+    "PassedQC(incl.Normal)"              = "Passed QC",
+    "Normal"                             = "Normal"
   )
   cat_colors <- c(
     "Replicating"                           = col_rep,
     "Replicating(low-RPC)"                  = "#FDAE6B",
     "Outliers(RPC)"                         = "#FC8D59",
     "Outliers(Alpha/Mapd/Gini,post-RPC)"    = col_fail,
+    "Borderline"                            = col_borderline,
     "PassedQC(incl.Normal)"                 = col_pass,
     "Normal"                                = col_norm
   )
   cats <- summary_df %>%
     tidyr::pivot_longer(everything(), names_to = "Category", values_to = "Count") %>%
     dplyr::filter(Category %in% cat_levels) %>%
-    dplyr::mutate(Category = factor(Category, levels = rev(cat_levels)))
+    dplyr::mutate(
+      Label    = cat_short[Category],
+      Category = factor(Category, levels = rev(cat_levels)),
+      Label    = factor(Label,    levels = rev(cat_short))
+    )
 
-  p1 <- ggplot(cats, aes(x = Count, y = Category, fill = Category)) +
+  p1 <- ggplot(cats, aes(x = Count, y = Label, fill = Category)) +
     geom_col(width = 0.65) +
-    geom_text(aes(label = Count), hjust = -0.15, size = 2.5, fontface = "bold") +
+    geom_text(aes(label = Count), hjust = -0.15, size = 2.2, fontface = "bold",
+              color = "grey20") +
     scale_fill_manual(values = cat_colors) +
-    scale_x_continuous(expand = expansion(mult = c(0, 0.18))) +
-    labs(title = "Cell categories", x = "Cell count", y = NULL) +
+    scale_x_continuous(expand = expansion(mult = c(0, 0.22))) +
+    labs(title = "Cell categories", x = "Count", y = NULL) +
     pub_theme +
     theme(legend.position = "none",
-          axis.text.y = element_text(size = base_sz - 1))
+          axis.text.y     = element_text(size = base_sz - 1.5))
 
-  # --- P2: Cycling activity ---------------------------------------------------
-  p2 <- ggplot(df, aes(x = factor(replicating, labels = c("Non-rep.", "Replicating")),
-                        y = cycling_activity, color = replicating)) +
-    geom_quasirandom(size = 0.6, alpha = 0.65, bandwidth = 0.3) +
-    scale_color_manual(values = c("FALSE" = col_pass, "TRUE" = col_rep)) +
+  # ── P2: Cycling activity ────────────────────────────────────────────────────
+  p2 <- ggplot(df, aes(x = SLX, y = cycling_activity, color = replicating)) +
+    geom_quasirandom(size = 0.55, alpha = 0.65, bandwidth = 0.4) +
+    scale_color_manual(values = c("FALSE" = col_pass, "TRUE" = col_rep),
+                       labels = c("Non-replic.", "Replicating"), name = NULL) +
     labs(title = "Cycling activity", x = NULL, y = "Cycling activity") +
-    pub_theme +
-    theme(legend.position = "none")
+    pub_theme + in_legend +
+    theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
 
-  # --- P3: Alpha distribution (all cells) ------------------------------------
+  # ── P3: Alpha distribution ──────────────────────────────────────────────────
   lnorm_cutoff <- exp(mean(log(alpha_all)) + 1.5 * sd(log(alpha_all)))
+  n_alpha <- length(alpha_all)
+  alpha_bw <- diff(range(alpha_all)) / 55
   p3 <- ggplot(data.frame(a = alpha_all), aes(x = a)) +
-    geom_histogram(aes(y = after_stat(density)), bins = 55,
-                   fill = col_pass, color = "white", alpha = 0.75, linewidth = 0.2) +
-    geom_density(color = "grey20", linewidth = 0.4, adjust = 1.2) +
+    geom_histogram(aes(y = after_stat(count)), bins = 55,
+                   fill = col_pass, color = "white", alpha = 0.8, linewidth = 0.15) +
+    geom_density(aes(y = after_stat(density) * n_alpha * alpha_bw),
+                 color = "grey25", linewidth = 0.4, adjust = 1.2) +
     geom_vline(xintercept = lnorm_cutoff, color = col_fail,
-               linetype = "dashed", linewidth = 0.7) +
+               linetype = "dashed", linewidth = 0.6) +
     annotate("text", x = lnorm_cutoff, y = Inf,
              label = sprintf("  %.3f", lnorm_cutoff),
-             hjust = 0, vjust = 1.4, size = 2.3, color = col_fail) +
-    labs(title = expression(bold(alpha)~"distribution (all cells)"),
-         x = expression(alpha), y = "Density") +
+             hjust = 0, vjust = 1.5, size = 2.0, color = col_fail) +
+    labs(title = expression(bold(alpha)~"distribution"),
+         x = expression(alpha), y = "Count") +
     pub_theme
 
-  # --- P4: MAPD residual scatter ----------------------------------------------
-  p4 <- ggplot(iq, aes(x = 1 / rpc, y = dmapd, color = as.character(dmapd.outlier))) +
-    geom_point(size = 0.55, alpha = 0.7) +
+  # ── P4: MAPD residual vs RPC ─────────────────────────────────────────────────
+  p4 <- ggplot(iq, aes(x = rpc, y = dmapd)) +
+    geom_point(aes(color = as.character(dmapd.outlier)), size = 0.5, alpha = 0.6) +
+    stat_density_2d(color = "grey35", linewidth = 0.22, alpha = 0.55, bins = 6) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "grey55", linewidth = 0.35) +
     outlier_scale +
-    labs(title = "MAPD (residual vs 1/RPC)", x = "1 / RPC", y = "MAPD residual") +
-    pub_theme +
-    theme(legend.position = c(0.85, 0.15),
-          legend.background = element_rect(fill = alpha("white", 0.7), color = NA))
+    scale_y_continuous(labels = function(x) round(x, 2)) +
+    labs(title = "MAPD residual vs RPC", x = "RPC", y = "Norm. MAPD") +
+    pub_theme + in_legend
 
-  # --- P5: Gini residual scatter ----------------------------------------------
-  p5 <- ggplot(iq, aes(x = rpc, y = dgini, color = as.character(dgini.outlier))) +
-    geom_point(size = 0.55, alpha = 0.7) +
+  # ── P5: Gini residual vs RPC ─────────────────────────────────────────────────
+  p5 <- ggplot(iq, aes(x = rpc, y = dgini)) +
+    geom_point(aes(color = as.character(dgini.outlier)), size = 0.5, alpha = 0.6) +
+    stat_density_2d(color = "grey35", linewidth = 0.22, alpha = 0.55, bins = 6) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "grey55", linewidth = 0.35) +
     outlier_scale +
-    labs(title = "Gini (residual vs RPC)", x = "RPC", y = "Gini residual") +
-    pub_theme +
-    theme(legend.position = c(0.85, 0.85),
-          legend.background = element_rect(fill = alpha("white", 0.7), color = NA))
+    scale_y_continuous(labels = function(x) round(x, 2)) +
+    labs(title = "Gini residual vs RPC", x = "RPC", y = "Norm. Gini") +
+    pub_theme + in_legend
 
-  # --- P6: Alpha vs RPC (non-replicating, post-RPC) ---------------------------
-  p6 <- ggplot(iq, aes(x = rpc, y = alpha_val, color = as.character(alpha.outlier))) +
-    geom_point(size = 0.55, alpha = 0.7) +
+  # ── P6: Alpha vs RPC ─────────────────────────────────────────────────────────
+  p6 <- ggplot(iq, aes(x = rpc, y = alpha_val,
+                        color = as.character(alpha.outlier))) +
+    geom_point(size = 0.5, alpha = 0.6) +
+    stat_density_2d(color = "grey35", linewidth = 0.22, alpha = 0.55, bins = 6) +
     outlier_scale +
-    labs(title = expression(bold(alpha)~"vs RPC (non-replicating)"),
+    labs(title = expression(bold(alpha)~"vs RPC"),
          x = "RPC", y = expression(alpha)) +
-    pub_theme +
-    theme(legend.position = c(0.85, 0.85),
-          legend.background = element_rect(fill = alpha("white", 0.7), color = NA))
+    pub_theme + in_legend
 
-  # --- Assemble with patchwork ------------------------------------------------
-  panel <- (p1 | p2 | p3) / (p4 | p5 | p6) +
+  # ── P7: Read count distribution ──────────────────────────────────────────────
+  reads_vals    <- df$total.reads[!is.na(df$total.reads)] / 1e6
+  n_cells_reads <- length(reads_vals)
+  reads_bw      <- diff(range(reads_vals)) / 45
+  p7 <- ggplot(df, aes(x = total.reads / 1e6)) +
+    geom_histogram(aes(y = after_stat(count)), bins = 45,
+                   fill = col_pass, color = "white", alpha = 0.8, linewidth = 0.15) +
+    geom_density(aes(y = after_stat(density) * n_cells_reads * reads_bw),
+                 color = "grey25", linewidth = 0.4, adjust = 1.2) +
+    geom_vline(xintercept = median(reads_vals),
+               color = col_rep, linetype = "dashed", linewidth = 0.55) +
+    annotate("text", x = median(reads_vals), y = Inf,
+             label = sprintf("  med=%.1fM", median(reads_vals)),
+             hjust = 0, vjust = 1.5, size = 2.0, color = col_rep) +
+    labs(title = "Read count distribution", x = "Total reads (M)", y = "Count",
+         caption = "Bars: counts  \u00b7  Curve: density") +
+    pub_theme +
+    theme(plot.caption = element_text(size = 5.0, color = "grey55", hjust = 0,
+                                      margin = margin(t = 2)))
+
+  # ── P8: Alpha vs used reads ───────────────────────────────────────────────────
+  p8 <- ggplot(iq, aes(x = used.reads / 1e6, y = alpha_val,
+                        color = as.character(alpha.outlier))) +
+    geom_point(size = 0.5, alpha = 0.6) +
+    stat_density_2d(color = "grey35", linewidth = 0.22, alpha = 0.55, bins = 6) +
+    outlier_scale +
+    labs(title = expression(bold(alpha)~"vs used reads"),
+         x = "Used reads (M)", y = expression(alpha)) +
+    pub_theme + in_legend
+
+  # ── P9: RPC vs used reads — coloured by ploidy ───────────────────────────────
+  df_pl <- df[!is.na(df$ploidy) & !is.na(df$rpc) & !is.na(df$used.reads), ]
+  df_pl$ploidy_f <- factor(round(df_pl$ploidy, 0))
+  ploidy_levels  <- sort(unique(as.integer(as.character(df_pl$ploidy_f))))
+  ploidy_pal_base <- c("1" = "#4575B4", "2" = "#41AB5D", "3" = "#FD8D3C",
+                       "4" = "#D73027", "5" = "#762A83", "6" = "#1B7837",
+                       "7" = "#8C510A", "8" = "#01665E")
+  ploidy_pal_used <- ploidy_pal_base[as.character(ploidy_levels)]
+  missing_pl <- is.na(ploidy_pal_used)
+  if (any(missing_pl))
+    ploidy_pal_used[missing_pl] <- scales::hue_pal()(sum(missing_pl))
+
+  p9 <- ggplot(df_pl, aes(x = used.reads / 1e6, y = rpc, colour = ploidy_f)) +
+    geom_point(size = 0.55, alpha = 0.65) +
+    scale_colour_manual(values = ploidy_pal_used, name = "Ploidy",
+                        guide = guide_legend(override.aes = list(size = 2.5))) +
+    labs(title = "RPC vs reads (ploidy)", x = "Used reads (M)", y = "RPC") +
+    pub_theme +
+    theme(legend.position = "right", legend.key.size = unit(0.28, "cm"))
+
+  # ── P10: RPC vs used reads — coloured by QC status ───────────────────────────
+  get_id <- function(x) if ("name" %in% names(x)) x$name else rownames(x)
+  iq_ids  <- get_id(iq)
+  iq_fail <- iq_ids[ iq$outlier]
+  iq_borderline <- if ("borderline" %in% names(iq)) iq_ids[iq$borderline] else character(0)
+
+  df_qc <- df[!is.na(df$rpc) & !is.na(df$used.reads), ]
+  df_qc$qc_status <- dplyr::case_when(
+    df_qc$replicating                    ~ "Replicating",
+    !(get_id(df_qc) %in% iq_ids)        ~ "Outlier (RPC)",
+    get_id(df_qc) %in% iq_borderline    ~ "Borderline",
+    get_id(df_qc) %in% iq_fail          ~ "Outlier (QC)",
+    TRUE                                 ~ "PassedQC"
+  )
+  df_qc$qc_status <- factor(df_qc$qc_status,
+                             levels = c("PassedQC", "Borderline", "Outlier (QC)",
+                                        "Outlier (RPC)", "Replicating"))
+  status_pal <- c("PassedQC"      = col_pass,
+                  "Borderline"    = col_borderline,
+                  "Outlier (QC)"  = col_fail,
+                  "Outlier (RPC)" = "#FC8D59",
+                  "Replicating"   = col_rep)
+
+  p10 <- ggplot(df_qc, aes(x = used.reads / 1e6, y = rpc, colour = qc_status)) +
+    geom_point(size = 0.55, alpha = 0.65) +
+    scale_colour_manual(values = status_pal, name = NULL,
+                        guide = guide_legend(override.aes = list(size = 2.5))) +
+    labs(title = "RPC vs reads (QC status)", x = "Used reads (M)", y = "RPC") +
+    pub_theme + in_legend
+
+  # ── Helper: embed PNG preserving its native aspect ratio ─────────────────────
+  # Uses annotation_raster + theme(aspect.ratio) so the image is never stretched.
+  # Patchwork honours aspect.ratio and adds white padding if the panel shape
+  # doesn't exactly match; the image itself is always undistorted.
+  png_panel <- function(path, title_txt) {
+    img <- tryCatch(png::readPNG(path), error = function(e) NULL)
+    if (is.null(img)) return(NULL)
+    img_w <- ncol(img); img_h <- nrow(img)
+    ggplot() +
+      annotation_raster(img,
+                        xmin = 0, xmax = img_w,
+                        ymin = 0, ymax = img_h,
+                        interpolate = TRUE) +
+      scale_x_continuous(limits = c(0, img_w), expand = c(0, 0)) +
+      scale_y_continuous(limits = c(0, img_h), expand = c(0, 0)) +
+      labs(title = title_txt) +
+      theme_void() +
+      theme(
+        aspect.ratio    = img_h / img_w,          # locks native ratio
+        plot.title      = element_text(size = base_sz + 0.5, face = "bold",
+                                       hjust = 0, margin = margin(b = 2)),
+        plot.background = element_rect(fill = "white", color = NA),
+        plot.margin     = margin(2, 6, 2, 6)
+      )
+  }
+
+  # ── Assemble ──────────────────────────────────────────────────────────────────
+  have_cn      <- !is.null(cn_heatmap_path)    && file.exists(cn_heatmap_path)
+  have_dropout <- !is.null(plate_heatmap_path) && file.exists(plate_heatmap_path)
+
+  p_cn      <- if (have_cn)      png_panel(cn_heatmap_path,    "Copy number heatmap (PassedQC)") else NULL
+  p_dropout <- if (have_dropout) png_panel(plate_heatmap_path, "Dropout plate")                  else NULL
+
+  qc_grid <- (p1 | p2 | p3 | p7) / (p4 | p5 | p6 | p8)
+
+  qc_wrapped <- patchwork::wrap_elements(full = patchwork::patchworkGrob(qc_grid))
+
+  # Bottom row: dropout (left, large) | p9 / p10 stacked (right column)
+  # wrap_elements on each sub-patchwork prevents the outer layout from flattening them.
+  make_bottom_row <- function(p_drop, p_top, p_bot) {
+    right_col    <- patchwork::wrap_elements(full = patchwork::patchworkGrob(p_top / p_bot))
+    row_pw       <- p_drop | right_col
+    row_pw       <- row_pw + patchwork::plot_layout(widths = c(2, 1))
+    patchwork::wrap_elements(full = patchwork::patchworkGrob(row_pw))
+  }
+
+  if (have_cn && have_dropout) {
+    # Row 1: CN heatmap (full width)  |  Row 2: 8 QC plots
+    # Row 3: dropout (left 2/3) | p9 over p10 (right 1/3)
+    # At fig_h = 22", heights c(1.4, 2, 2.0):
+    #   CN ≈ 5.5" (inner panel ~17 × 5.4", full width)  QC ≈ 7.9"
+    #   Bottom ≈ 8.1" → dropout ~11.3" wide × ~8.1" tall; each scatter ~5.7" × ~4.0"
+    bottom <- make_bottom_row(p_dropout, p9, p10)
+    panel  <- p_cn / qc_wrapped / bottom +
+              plot_layout(heights = c(1.4, 2, 2.0))
+    fig_h  <- 22
+  } else if (have_cn) {
+    panel <- p_cn / qc_wrapped +
+             plot_layout(heights = c(1.4, 2))
+    fig_h <- 15
+  } else if (have_dropout) {
+    bottom <- make_bottom_row(p_dropout, p9, p10)
+    panel  <- qc_wrapped / bottom +
+              plot_layout(heights = c(2, 2.0))
+    fig_h  <- 19
+  } else {
+    panel <- qc_grid
+    fig_h <- 8.5
+  }
+
+  panel <- panel +
     plot_annotation(
-      title    = paste0("QC Summary \u2014 Sample ", sample_id),
+      title    = if (!is.null(condition) && nzchar(condition))
+                 paste0("QC Summary \u2014 ", sample_id, "  [", condition, "]")
+               else
+                 paste0("QC Summary \u2014 ", sample_id),
       subtitle = paste0(
-        nrow(df), " total cells  |  ",
+        nrow(df), " cells total  |  ",
         sum(df$replicating, na.rm = TRUE), " replicating  |  ",
+        if ("Borderline" %in% names(summary_df))
+          paste0(as.integer(summary_df[["Borderline"]]), " borderline  |  ") else "",
         as.integer(summary_df[["PassedQC(incl.Normal)"]]), " PassedQC  |  ",
         as.integer(summary_df[["Normal"]]), " normal"
       ),
+      tag_levels = "A",
       theme = theme(
-        plot.title    = element_text(size = 11, face = "bold", hjust = 0),
-        plot.subtitle = element_text(size = 8.5, color = "grey35", hjust = 0,
-                                     margin = margin(b = 6))
+        plot.title    = element_text(size = 10.5, face = "bold", hjust = 0,
+                                     margin = margin(b = 2)),
+        plot.subtitle = element_text(size = 8, color = "grey35", hjust = 0,
+                                     margin = margin(b = 5)),
+        plot.tag      = element_text(size = 8, face = "bold", color = "grey20")
       )
     ) &
-    theme(plot.margin = margin(4, 6, 4, 6))
+    theme(plot.margin = margin(3, 4, 3, 4))
 
-  ggsave(outfile, panel, width = 13, height = 7.5, dpi = 300, device = cairo_pdf)
+  ggsave(outfile, panel, width = 17, height = fig_h, dpi = 300, device = cairo_pdf)
   invisible(panel)
 }

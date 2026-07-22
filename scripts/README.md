@@ -64,11 +64,22 @@ Rscript scripts/01_generate_outlier_summaries.R <samples_csv> [obj_base] [out_ba
 - scAbsolute RDS objects at `obj_base/SLX-<sample>_<bin_size>.rds`
 
 **Output (per sample):**
-- `outlier_summary.rds` - Summary statistics
-- `cellbased_outliers.rds` - Cell-level outlier data
-- `<sample>_non_outlier.rds` - Filtered object without outliers
-- `normals.rds` - Normal cells identified
-- `heatmap_clustered.pdf` - Copy number heatmap
+- `qc_summary.csv` - Mutually exclusive QC category counts
+- `qc_cell_labels.rds` - Cell-level QC flags and final status
+- `all_cells_qc.csv` - Cell-level QC metrics, status, and explicit failure reason(s)
+- `cells_passedqc.rds` - Strict PassedQC object
+- `cells_borderline.rds` - Borderline cells held out for review
+- `borderline_cells.csv` - Metrics plus blank manual decision and notes columns
+- `cells_normal.rds` - Normal-cell metrics
+- `figures/heatmap_clustered.pdf` - Copy-number heatmap
+- `figures/cn_profiles_borderline.pdf` - Annotated absolute-CN profiles for review
+
+Each copy-number profile PDF starts with the exact thresholds used for that run.
+Every cell page includes final QC status, failure reason(s), RPC, MAPD/Gini
+standardized residuals, alpha, and replication activity when applicable.
+
+By default, Borderline includes cells with at most two MAPD/Gini/alpha flags,
+provided MAPD and Gini residuals are at most 3 SD and alpha is at most 0.05.
 
 ---
 

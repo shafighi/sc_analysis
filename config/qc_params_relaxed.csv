@@ -5,6 +5,8 @@ mapd_density_control,TRUE,Use density-based MAPD filtering
 gini_norm_cutoff,1.5,Gini coefficient maximum (stricter threshold)
 alpha_cutoff,2,HMM Alpha cutoff (more permissive)
 alpha_hard_cutoff,0.05,HMM Alpha hard cutoff
+borderline_extreme_cutoff,3,MAPD/Gini standardized residual above which a metric failure is high-confidence
+borderline_max_metric_flags,2,Maximum number of mild MAPD/Gini/alpha failures allowed in Borderline
 gini_density_control,TRUE,Use density-based Gini filtering
 densityCutoff,0.1,Density cutoff for outlier detection
 cutoff_percentile,0.05,Percentile cutoff for QC metrics

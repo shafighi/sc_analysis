@@ -38,6 +38,8 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(viridis)
+source("R/visualization_helpers.R")
+source("R/summary_helpers.R")
 
 # ==============================================================================
 # Load samples
@@ -247,10 +249,13 @@ render_plate_heatmap <- function(plate, sample_id, plate_label, n_cells,
   plate$fill_val    <- sqrt(plate$total_dropout)
   plate$display_val <- ifelse(is.na(plate$total_dropout), "",
                               as.character(plate$total_dropout))
-  mid_thresh <- max(1, max_val * 0.25)
+  # Inferno (option "C") is dark at low values and bright yellow at high values,
+  # so LOW dropout tiles are dark and need white text; HIGH values are bright and
+  # need dark text.
+  mid_thresh <- max(1, max_val * 0.35)
   plate$text_color <- ifelse(
     is.na(plate$total_dropout), "grey70",
-    ifelse(plate$total_dropout >= mid_thresh, "white", "grey20")
+    ifelse(plate$total_dropout < mid_thresh, "white", "grey20")
   )
 
   n_cols <- length(all_cols)
@@ -403,6 +408,134 @@ for (i in seq_len(nrow(samples_tbl))) {
   # Well-plate layout heatmap (one per plate)
   cell_pos_path <- file.path(sample_dir, "cell_pos_dropout.rds")
   plot_dropout_plate(cell_pos_path, cell_chr_dropout, sample_id, fig_dir)
+
+  # Regenerate QC summary panel with CN heatmap + dropout plate heatmap
+  qc_metric_path    <- file.path(sample_dir, "qc_metric_data.rds")
+  plate_heatmap_png <- file.path(fig_dir, "dropout_plate_heatmap.png")
+  if (file.exists(qc_metric_path)) {
+    qc_data <- tryCatch(readRDS(qc_metric_path), error = function(e) NULL)
+    if (!is.null(qc_data)) {
+      cn_png <- if (!is.null(qc_data$cn_heatmap_png) && file.exists(qc_data$cn_heatmap_png))
+                  qc_data$cn_heatmap_png else NULL
+      plate_png <- if (file.exists(plate_heatmap_png)) plate_heatmap_png else NULL
+      tryCatch(
+        plot_qc_summary_panel(
+          df                 = qc_data$df,
+          iq                 = qc_data$iq,
+          summary_df         = qc_data$summary_df,
+          sample_id          = sample_id,
+          outfile            = file.path(fig_dir, "qc_summary_panel.pdf"),
+          cn_heatmap_path    = cn_png,
+          plate_heatmap_path = plate_png
+        ),
+        error = function(e) warning("QC panel update failed for ", sample_id, ": ", e$message)
+      )
+      message("  Updated QC summary panel with CN heatmap + dropout plate.")
+    }
+  }
+
+  # Per-condition panels (if condition_patterns column is present in samples CSV)
+  condition_patterns_str <- if ("condition_patterns" %in% names(samples_tbl))
+    samples_tbl$condition_patterns[i] else NA
+  cond_patterns <- parse_condition_patterns(condition_patterns_str)
+
+  if (length(cond_patterns) > 0) {
+    # Extract conditions from cell names present in dropout data
+    all_cells_in_dropout <- unique(cn_binned$cell)
+    cond_df   <- extract_cell_conditions(all_cells_in_dropout, cond_patterns)
+    conditions <- sort(setdiff(unique(cond_df$condition), "all"))
+
+    message("  Condition panels: ", paste(conditions, collapse=", "))
+
+    for (cond in conditions) {
+      safe_cond  <- gsub("[^A-Za-z0-9_-]", "_", cond)
+      cond_cells <- cond_df$cell[cond_df$condition == cond]
+
+      if (length(cond_cells) < 3) {
+        message("  Skipping condition '", cond, "' — too few cells")
+        next
+      }
+
+      # Subset dropout data to this condition
+      cn_binned_cond    <- cn_binned        %>% filter(cell %in% cond_cells)
+      cell_chr_drop_cond <- cell_chr_dropout %>% filter(cell %in% cond_cells)
+
+      # Per-condition plate heatmap
+      cond_plate_png <- file.path(fig_dir, paste0("dropout_plate_heatmap_cond_", safe_cond, ".png"))
+      tryCatch(
+        plot_dropout_plate(
+          cell_pos_dropout_path = file.path(sample_dir, "cell_pos_dropout.rds"),
+          cell_chr_dropout      = cell_chr_drop_cond,
+          sample_id             = paste0(sample_id, " [", cond, "]"),
+          fig_dir               = fig_dir
+        ),
+        error = function(e) warning("Plate heatmap failed for condition '", cond, "': ", e$message)
+      )
+      # Rename the generic output to condition-specific name if it was written
+      generic_plate <- file.path(fig_dir, paste0("dropout_plate_heatmap_", gsub("[^A-Za-z0-9_]", "", sample_id), "_.png"))
+      # Simpler: just pass a dedicated fig_dir temp and rename, or call render_plate_heatmap directly
+      # Instead, re-generate using render_plate_heatmap on the subsetted cells
+      cell_totals_cond <- cell_chr_drop_cond %>%
+        group_by(cell) %>%
+        summarise(total_dropout = sum(dropout_count, na.rm = TRUE), .groups = "drop")
+      plate_match <- regexpr("Plate_[0-9]+", cell_totals_cond$cell)
+      cell_totals_cond$plate_id <- ifelse(plate_match > 0,
+                                           regmatches(cell_totals_cond$cell, plate_match), NA)
+      well_match <- regexpr("[A-P][0-9]+", cell_totals_cond$cell)
+      cell_totals_cond$well <- ifelse(well_match > 0,
+                                       regmatches(cell_totals_cond$cell, well_match), NA)
+      cell_totals_cond$AZ     <- sub("[0-9]+$", "", cell_totals_cond$well)
+      cell_totals_cond$Number <- as.integer(sub("^[A-Z]+", "", cell_totals_cond$well))
+      valid_cond <- cell_totals_cond %>% filter(grepl("^[A-P]$", AZ), !is.na(Number))
+
+      if (nrow(valid_cond) > 0) {
+        for (pid in sort(unique(valid_cond$plate_id))) {
+          plate_data <- valid_cond %>%
+            filter(plate_id == pid) %>%
+            select(AZ, Number, total_dropout)
+          render_plate_heatmap(
+            plate      = plate_data,
+            sample_id  = sample_id,
+            plate_label = paste0("[", cond, "]"),
+            n_cells    = nrow(plate_data),
+            outfile    = file.path(fig_dir, paste0("dropout_plate_heatmap_cond_", safe_cond, ".png"))
+          )
+        }
+        cond_plate_png <- file.path(fig_dir, paste0("dropout_plate_heatmap_cond_", safe_cond, ".png"))
+      } else {
+        cond_plate_png <- NULL
+      }
+
+      # Load per-condition qc_metric_data saved by step 01
+      cond_metric_path <- file.path(sample_dir, paste0("qc_metric_data_", safe_cond, ".rds"))
+      if (file.exists(cond_metric_path)) {
+        qc_cond <- tryCatch(readRDS(cond_metric_path), error = function(e) NULL)
+        if (!is.null(qc_cond)) {
+          cn_png_cond <- if (!is.null(qc_cond$cn_heatmap_png) &&
+                             file.exists(qc_cond$cn_heatmap_png))
+                           qc_cond$cn_heatmap_png else NULL
+          plate_png_cond <- if (!is.null(cond_plate_png) && file.exists(cond_plate_png))
+                              cond_plate_png else NULL
+          tryCatch(
+            plot_qc_summary_panel(
+              df                 = qc_cond$df,
+              iq                 = qc_cond$iq,
+              summary_df         = qc_cond$summary_df,
+              sample_id          = sample_id,
+              condition          = cond,
+              outfile            = file.path(fig_dir, paste0("qc_summary_panel_", safe_cond, ".pdf")),
+              cn_heatmap_path    = cn_png_cond,
+              plate_heatmap_path = plate_png_cond
+            ),
+            error = function(e) warning("QC panel failed for condition '", cond, "': ", e$message)
+          )
+          message("  Updated QC summary panel for condition: ", cond)
+        }
+      } else {
+        message("  No qc_metric_data_", safe_cond, ".rds — run step 01 with condition_patterns first.")
+      }
+    }
+  }
 
   message("Done: ", sample_id)
 }

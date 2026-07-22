@@ -43,7 +43,8 @@ col_map <- list(
   Replicating = c("Replicating", "Replicating...RPC"),
   Normal      = c("Normal Cells", "Normal.Cells", "Normal"),
   `Outliers(RPC)` = c("Outliers(RPC)", "Outliers.RPC."),
-  `Outliers(Alpha/Mapd/Gini)` = c("Outliers(Alpha/Mapd/Gini,post-RPC)", "Outliers.Alpha.Mapd.Gini.post.RPC.")
+  `Outliers(Alpha/Mapd/Gini)` = c("Outliers(Alpha/Mapd/Gini,post-RPC)", "Outliers.Alpha.Mapd.Gini.post.RPC."),
+  Borderline = c("Borderline")
 )
 for (target in names(col_map)) {
   src <- pick_col(df, col_map[[target]])
@@ -100,12 +101,13 @@ if (length(unique(df$Group)) > 1 && any(!is.na(df$High_Quality_Pct))) {
 }
 
 # Plot 4: Composition bar chart (categories matching outlier_summary.csv)
-comp_cols <- c("Replicating", "Outliers(RPC)", "Outliers(Alpha/Mapd/Gini)", "PassedQC", "Normal")
+comp_cols <- c("Replicating", "Outliers(RPC)", "Outliers(Alpha/Mapd/Gini)", "Borderline", "PassedQC", "Normal")
 # Okabe-Ito colorblind-safe palette (Nature recommended)
 comp_colors <- c(
   "Replicating"                 = "#E69F00",
   "Outliers(RPC)"               = "#D55E00",
   "Outliers(Alpha/Mapd/Gini)"   = "#0072B2",
+  "Borderline"                  = "#CC79A7",
   "PassedQC"                    = "#009E73",
   "Normal"                      = "#CC79A7"
 )
