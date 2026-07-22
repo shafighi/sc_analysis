@@ -4,7 +4,7 @@
 # ==============================================================================
 #
 # Usage:
-#   Rscript scripts/01_generate_outlier_summaries.R <samples_csv> [obj_base] [out_base] [bin_size] [qc_config]
+#   Rscript scripts/01_generate_outlier_summaries.R <samples_csv> <obj_base> <out_base> [bin_size] [qc_config]
 #
 # Arguments:
 #   samples_csv - CSV file with 'sample' column (and optional 'category')
@@ -44,9 +44,12 @@
 # ==============================================================================
 
 args <- commandArgs(trailingOnly = TRUE)
-samples_csv <- if (length(args) >= 1) args[[1]] else NULL
-obj_base    <- if (length(args) >= 2) args[[2]] else "/Volumes/LenovoPS8/FI backup/sc_analysis/scAboslute-obj"
-out_base    <- if (length(args) >= 3) args[[3]] else "/Volumes/LenovoPS8/FI backup/sc_analysis/analysis_per_sample"
+if (length(args) < 3L) {
+  stop("Usage: Rscript scripts/01_generate_outlier_summaries.R <samples_csv> <obj_base> <out_base> [bin_size] [qc_config]")
+}
+samples_csv <- args[[1]]
+obj_base    <- args[[2]]
+out_base    <- args[[3]]
 bin_size    <- if (length(args) >= 4) args[[4]] else "100"
 qc_config   <- if (length(args) >= 5) args[[5]] else "config/qc_params_default.csv"
 
@@ -55,12 +58,23 @@ qc_config   <- if (length(args) >= 5) args[[5]] else "config/qc_params_default.c
 # all intended outputs below open explicit file devices.
 options(device = function(...) grDevices::pdf(file = NULL))
 
-library(Biobase)
-library(dplyr)
+suppressPackageStartupMessages({
+  library(Biobase)
+  library(QDNAseq)
+  library(dplyr)
+  library(tidyr)
+  library(magrittr)
+  library(ggplot2)
+  library(ggbeeswarm)
+  library(ggpubr)
+  library(patchwork)
+  library(robustbase)
+  library(readxl)
+  library(future)
+})
 source("R/core.R")
 source("R/visualization_helpers.R")
 source("R/summary_helpers.R")
-source("R/sc_visualization.R")
 
 # ==============================================================================
 # Load QC Parameters from config file

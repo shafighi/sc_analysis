@@ -9,7 +9,7 @@
 #   3. CSV containing the per-cell frequency-1 event counts.
 #
 # Usage:
-#   Rscript scripts/08_post_scunique_visualizations.R \
+#   Rscript scripts/generate_visualizations.R \
 #     <scunique_result_dir> [output_dir] [prefix]
 #
 # The result directory must contain:
@@ -23,7 +23,7 @@
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 1L || length(args) > 3L) {
   stop(
-    "Usage: Rscript scripts/08_post_scunique_visualizations.R ",
+    "Usage: Rscript scripts/generate_visualizations.R ",
     "<scunique_result_dir> [output_dir] [prefix]"
   )
 }
@@ -258,10 +258,10 @@ p_hist <- ggplot(event_counts, aes(x = n_unique_events)) +
   ) +
   scale_x_continuous(breaks = seq(0, max_count, by = axis_step)) +
   labs(
-    title = "Distribution of validated unique events (freq = 1)",
+    title = "Private (freq = 1) rCNA burden per cell",
     subtitle = summary_text,
-    x = "Unique events per cell",
-    y = "Number of cells"
+    x = "Private events per cell",
+    y = "Cells with this many private events"
   ) +
   theme_minimal(base_size = 11) +
   theme(panel.grid.minor = element_blank())
@@ -281,7 +281,7 @@ p_cell <- ggplot(plot_counts, aes(x = n_unique_events, y = cell_label)) +
     breaks = seq(0, max_count, by = axis_step),
     expand = expansion(mult = c(0, 0.08))
   ) +
-  labs(x = "Validated unique events (freq = 1)", y = NULL) +
+  labs(x = "Private events per cell (freq = 1)", y = NULL) +
   theme_minimal(base_size = 9) +
   theme(
     panel.grid.major.y = element_blank(),

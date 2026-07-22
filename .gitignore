@@ -1,13 +1,38 @@
-scAboslute-obj
-scAboslute-obj/*.rds
+# Operating-system and editor files
 .DS_Store
-post-scAbsolute
-post-scAbsolute/*
-all_samples_23july2024
-all_samples_23july2024/*
-analysis_per_sample
-analysis_per_sample/*
-results_*
-results_*/*
-scUnique-obj
-scUnique-obj/*
+._*
+.claude/settings.local.json
+
+# Local data and generated results
+analysis_per_sample/
+obj_test_out/
+output/
+output_cellcycle_fix/
+post-scAbsolute/
+results_*/
+runs/
+scAbsolute_obj/
+scAboslute-obj/
+scUnique-obj/
+tmp/
+
+# Local R libraries and caches
+R_libs_*/
+fontconfig-cache/
+.Rhistory
+.RData
+.Rproj.user/
+
+# Large analysis artifacts
+*.rds
+*.RDS
+*.RData
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.tiff
+
+# Keep documentation images/PDFs if they are deliberately added later
+!docs/**/*.pdf
+!docs/**/*.png

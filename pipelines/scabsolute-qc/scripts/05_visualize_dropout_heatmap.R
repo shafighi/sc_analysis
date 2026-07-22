@@ -22,8 +22,11 @@
 # ==============================================================================
 
 args <- commandArgs(trailingOnly = TRUE)
-samples_csv <- if (length(args) >= 1) args[[1]] else NULL
-obj_base    <- if (length(args) >= 2) args[[2]] else "/Volumes/LenovoPS8/FI backup/sc_analysis/analysis_per_sample"
+if (length(args) < 2L) {
+  stop("Usage: Rscript scripts/05_visualize_dropout_heatmap.R <samples_csv> <obj_base> [out_base] [bin_size] [group_col]")
+}
+samples_csv <- args[[1]]
+obj_base    <- args[[2]]
 out_base    <- if (length(args) >= 3) args[[3]] else obj_base
 bin_size    <- if (length(args) >= 4) args[[4]] else "100"
 group_col   <- if (length(args) >= 5) args[[5]] else "Cell line"
@@ -36,8 +39,8 @@ library(viridis)
 # ==============================================================================
 # Load samples
 # ==============================================================================
-if (is.null(samples_csv) || !file.exists(samples_csv)) {
-  stop("Usage: Rscript scripts/05_visualize_dropout_heatmap.R <samples_csv> <obj_base> [out_base] [bin_size] [group_col]")
+if (!file.exists(samples_csv)) {
+  stop("Samples CSV does not exist: ", samples_csv)
 }
 
 samples_tbl <- read.csv(samples_csv, stringsAsFactors = FALSE, check.names = FALSE)

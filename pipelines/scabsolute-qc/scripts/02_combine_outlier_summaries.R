@@ -11,16 +11,19 @@
 # ==============================================================================
 
 args <- commandArgs(trailingOnly = TRUE)
-samples_csv <- if (length(args) >= 1) args[[1]] else NULL
-out_base    <- if (length(args) >= 2) args[[2]] else "/Volumes/LenovoPS8/FI backup/sc_analysis/results_all_samples"
-obj_base    <- if (length(args) >= 3) args[[3]] else "/Volumes/LenovoPS8/FI backup/sc_analysis/analysis_per_sample"
+if (length(args) < 3L) {
+  stop("Usage: Rscript scripts/02_combine_outlier_summaries.R <samples_csv> <out_base> <obj_base> [bin_size]")
+}
+samples_csv <- args[[1]]
+out_base    <- args[[2]]
+obj_base    <- args[[3]]
 bin_size    <- if (length(args) >= 4) args[[4]] else "100"
 
 library(dplyr)
 
 run_date <- format(Sys.time(), "%Y%m%d")
 
-if (is.null(samples_csv) || !file.exists(samples_csv)) {
+if (!file.exists(samples_csv)) {
   stop("samples_csv is required and must exist.")
 }
 

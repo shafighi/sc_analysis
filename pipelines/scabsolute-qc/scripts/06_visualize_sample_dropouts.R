@@ -29,8 +29,11 @@
 # ==============================================================================
 
 args <- commandArgs(trailingOnly = TRUE)
-samples_csv <- if (length(args) >= 1) args[[1]] else NULL
-obj_base    <- if (length(args) >= 2) args[[2]] else "/Volumes/LenovoPS8/FI backup/sc_analysis/analysis_per_sample"
+if (length(args) < 2L) {
+  stop("Usage: Rscript scripts/06_visualize_sample_dropouts.R <samples_csv> <obj_base> [out_base] [bin_size]")
+}
+samples_csv <- args[[1]]
+obj_base    <- args[[2]]
 out_base    <- if (length(args) >= 3) args[[3]] else obj_base
 bin_size    <- if (length(args) >= 4) args[[4]] else "100"
 
@@ -44,8 +47,8 @@ source("R/summary_helpers.R")
 # ==============================================================================
 # Load samples
 # ==============================================================================
-if (is.null(samples_csv) || !file.exists(samples_csv)) {
-  stop("Usage: Rscript scripts/06_visualize_sample_dropouts.R <samples_csv> <obj_base> [out_base] [bin_size]")
+if (!file.exists(samples_csv)) {
+  stop("Samples CSV does not exist: ", samples_csv)
 }
 
 samples_tbl <- read.csv(samples_csv, stringsAsFactors = FALSE, check.names = FALSE)
