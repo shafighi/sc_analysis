@@ -64,11 +64,22 @@ Rscript scripts/01_generate_outlier_summaries.R <samples_csv> [obj_base] [out_ba
 - scAbsolute RDS objects at `obj_base/SLX-<sample>_<bin_size>.rds`
 
 **Output (per sample):**
-- `outlier_summary.rds` - Summary statistics
-- `cellbased_outliers.rds` - Cell-level outlier data
-- `<sample>_non_outlier.rds` - Filtered object without outliers
-- `normals.rds` - Normal cells identified
-- `heatmap_clustered.pdf` - Copy number heatmap
+- `qc_summary.csv` - Mutually exclusive QC category counts
+- `qc_cell_labels.rds` - Cell-level QC flags and final status
+- `all_cells_qc.csv` - Cell-level QC metrics, status, and explicit failure reason(s)
+- `cells_passedqc.rds` - Strict PassedQC object
+- `cells_borderline.rds` - Borderline cells held out for review
+- `borderline_cells.csv` - Metrics plus blank manual decision and notes columns
+- `cells_normal.rds` - Normal-cell metrics
+- `figures/heatmap_clustered.pdf` - Copy-number heatmap
+- `figures/cn_profiles_borderline.pdf` - Annotated absolute-CN profiles for review
+
+Each copy-number profile PDF starts with the exact thresholds used for that run.
+Every cell page includes final QC status, failure reason(s), RPC, MAPD/Gini
+standardized residuals, alpha, and replication activity when applicable.
+
+By default, Borderline includes cells with at most two MAPD/Gini/alpha flags,
+provided MAPD and Gini residuals are at most 3 SD and alpha is at most 0.05.
 
 ---
 
@@ -166,6 +177,57 @@ Required R packages:
 Install missing packages:
 ```r
 install.packages(c("dplyr", "tidyr", "ggplot2", "knitr", "kableExtra", "flextable", "gridExtra"))
+```
+
+---
+
+## Standalone post-scUnique visualization pipeline
+
+The post-scUnique pipeline is intentionally separate from the scAbsolute QC
+pipeline. Run it after scUnique has completed and written its per-sample RDS
+files.
+
+```bash
+./run_post_scunique.sh \
+    /path/to/scunique/results/SLX-27548_500 \
+    /path/to/output
+```
+
+If a result directory contains more than one `*.finalCN.RDS`, provide the
+sample prefix as the third argument:
+
+```bash
+./run_post_scunique.sh \
+    /path/to/scunique/results/sample_directory \
+    /path/to/output \
+    SLX-27548_500
+```
+
+The input directory must contain matching files named:
+
+- `<prefix>.finalCN.RDS`
+- `<prefix>.tree.RDS`
+- `<prefix>.df_pass_post.RDS`
+
+Outputs:
+
+- `<prefix>_tree_cn_heatmap_labeled.pdf` and `.png` - final copy-number
+  heatmap ordered by the evolutionary tree. The tree receives a wide dedicated
+  margin, and the shared prefix is removed from displayed cell labels.
+- `<prefix>_freq1_unique_events_distribution.pdf` and `.png` - histogram and
+  sorted per-cell counts of validated events where `freq == 1`.
+- `<prefix>_freq1_unique_events_per_cell.csv` - full cell name, shortened label,
+  and event count, including zero-event cells.
+- `<prefix>_post_scunique_summary.csv` - cell/event totals and the exact shared
+  label prefix removed for plotting.
+
+The underlying script can also be run directly:
+
+```bash
+Rscript scripts/08_post_scunique_visualizations.R \
+    /path/to/scunique/results/SLX-27548_500 \
+    /path/to/output \
+    SLX-27548_500
 ```
 
 ---

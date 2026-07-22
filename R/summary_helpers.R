@@ -8,6 +8,8 @@ get_summary_of_outliers <- function(object,
                                     gini_norm_cutoff = 2,
                                     alpha_cutoff = 1.5,
                                     alpha_hard_cutoff = 0.05,
+                                    borderline_extreme_cutoff = 3,
+                                    borderline_max_metric_flags = 2,
                                     gini_density_control = TRUE,
                                     densityCutoff = 0.1,
                                     cutoff_percentile = 0.05,
@@ -35,9 +37,11 @@ get_summary_of_outliers <- function(object,
   if (!is.null(UID)) modified_df$UID <- UID
 
   # Pass the modified data frame to predict_replicating (uses batch grouping internally)
+  # Use batch="sample" (UID + SLX) rather than "technology" — the TECHNOLOGY column
+  # is parsed from cell names and breaks when naming conventions vary across runs.
   df <- predict_replicating(
     modified_df,
-    batch = "technology",
+    batch = "sample",
     cutoff_value = replicating_cutoff_value,
     iqr_value = replicating_iqr_value
   )
@@ -94,8 +98,36 @@ get_summary_of_outliers <- function(object,
   if (is.data.frame(iq$dgini.outlier)) dgini_flag <- iq$dgini.outlier[, 1] else dgini_flag <- iq$dgini.outlier
   if (is.data.frame(iq$alpha.outlier)) alpha_flag <- iq$alpha.outlier[, 1] else alpha_flag <- iq$alpha.outlier
   iq$outlier <- dmap_flag | dgini_flag | alpha_flag
+  iq$metric_flag_count <- rowSums(cbind(dmap_flag, dgini_flag, alpha_flag), na.rm = TRUE)
+  iq$extreme_metric_outlier <-
+    iq$dmapd > borderline_extreme_cutoff |
+    iq$dgini > borderline_extreme_cutoff |
+    iq$alpha.select > alpha_hard_cutoff
+  if (length(borderline_max_metric_flags) != 1 ||
+      !is.finite(borderline_max_metric_flags) ||
+      borderline_max_metric_flags < 1 || borderline_max_metric_flags > 3) {
+    stop("borderline_max_metric_flags must be a single value between 1 and 3")
+  }
+  # Borderline cells may fail a limited number of metrics at the standard
+  # cutoff, but cannot exceed the conservative residual/alpha hard cutoffs.
+  # They remain excluded from PassedQC until manually reviewed.
+  iq$borderline <-
+    iq$outlier &
+    iq$metric_flag_count <= borderline_max_metric_flags &
+    !iq$extreme_metric_outlier
+  iq$high_confidence_metric_outlier <- iq$outlier & !iq$borderline
   
-  message("Out of ", nrow(df), " cells, ", sum(df$replicating), " are replicating. Out of the ", sum(!df$replicating), " non-replicating cells: mapd outliers: ", sum(iq$dmapd.outlier), ", gini outliers: ", sum(iq$dgini.outlier), ", rpc outliers: ", sum(df[df$replicating == FALSE, ]$rpc < rpc_cutoff), ", alpha outliers: ", sum(iq$alpha.outlier), ", total outliers (at least one category): ", sum(iq$outlier))
+  message(
+    "Out of ", nrow(df), " cells, ", sum(df$replicating),
+    " are replicating. Out of the ", sum(!df$replicating),
+    " non-replicating cells: mapd outliers: ", sum(iq$dmapd.outlier),
+    ", gini outliers: ", sum(iq$dgini.outlier),
+    ", rpc outliers: ", sum(df[df$replicating == FALSE, ]$rpc < rpc_cutoff),
+    ", alpha outliers: ", sum(iq$alpha.outlier),
+    ", metric union: ", sum(iq$outlier),
+    " (", sum(iq$high_confidence_metric_outlier), " high-confidence; ",
+    sum(iq$borderline), " borderline)"
+  )
   non_outlier_cells <- iq[!iq$outlier, ]$name
   condition_to_stay <- sub("_[0-9]*$", "", Biobase::pData(non_rep_object)$name) %in% non_outlier_cells
 
@@ -147,8 +179,21 @@ get_summary_of_outliers <- function(object,
   #colnames(summary_df) <- c("Processed Cells", "Replicating", "Mapd Outliers", "Gini Outliers","RPC Outliers","Alpha Outliers","Good Quality Cells","Normal Cells")
   
   
-  summary_df <- as.data.frame(t(c(nrow(df),sum((df$replicating)),sum(rep_only$rpc<rpc_cutoff),sum(df[df$replicating==FALSE,]$rpc<rpc_cutoff),sum(iq$dmapd.outlier | iq$dgini.outlier | iq$alpha.outlier),ncol(non_outlier_object@assayData$copynumber),nrow(normals))))
-  colnames(summary_df) <- c("post-scAbsolute", "Replicating", "Replicating(low-RPC)", "Outliers(RPC)", "Outliers(Alpha/Mapd/Gini,post-RPC)", "PassedQC(incl.Normal)", "Normal")
+  summary_df <- as.data.frame(t(c(
+    nrow(df),
+    sum(df$replicating),
+    sum(rep_only$rpc < rpc_cutoff),
+    sum(df[df$replicating == FALSE, ]$rpc < rpc_cutoff),
+    sum(iq$high_confidence_metric_outlier),
+    sum(iq$borderline),
+    ncol(non_outlier_object@assayData$copynumber),
+    nrow(normals)
+  )))
+  colnames(summary_df) <- c(
+    "post-scAbsolute", "Replicating", "Replicating(low-RPC)",
+    "Outliers(RPC)", "Outliers(Alpha/Mapd/Gini,post-RPC)",
+    "Borderline", "PassedQC(incl.Normal)", "Normal"
+  )
   
   # Plot the table
   #table_plot <- tableGrob(summary_df)
@@ -166,12 +211,24 @@ get_summary_of_outliers <- function(object,
       rpc_outlier_replicating = name %in% rep_only[rep_only$rpc<rpc_cutoff,]$name,
       alpha_outlier = name %in% iq[iq$alpha.outlier,]$name,
       na_alpha_outliers = name %in% na_alpha_cells$name,
-      gini_alpha_mapd = name %in% iq[iq$dmapd.outlier | iq$dgini.outlier | iq$alpha.outlier,]$name
+      gini_alpha_mapd = name %in% iq[iq$outlier,]$name,
+      metric_flag_count = dmap_outlier + gini_outlier + alpha_outlier,
+      extreme_metric_outlier = name %in% iq[iq$extreme_metric_outlier,]$name,
+      borderline = name %in% iq[iq$borderline,]$name,
+      high_confidence_metric_outlier = name %in% iq[iq$high_confidence_metric_outlier,]$name,
+      qc_status = dplyr::case_when(
+        na_alpha_outliers ~ "NA alpha",
+        replicating ~ "Replicating",
+        rpc_outlier_non_replicating ~ "Low RPC",
+        borderline ~ "Borderline",
+        high_confidence_metric_outlier ~ "Metric outlier",
+        TRUE ~ "PassedQC"
+      )
     ) %>%
-    mutate(across(-name, as.integer))
+    mutate(across(-c(name, qc_status), as.integer))
   # Get a summary of how many cells are in each category
   summary_counts <- summary_df_outliers %>%
-    summarise(across(-name, sum))
+    summarise(across(where(is.numeric), sum))
   
   # optionally persist the cell-based outlier table
   if (isTRUE(save_results) && !is.null(outlier_cellbase_path)) saveRDS(summary_df_outliers, outlier_cellbase_path)
@@ -184,6 +241,8 @@ get_summary_of_outliers <- function(object,
     gini_norm_cutoff = gini_norm_cutoff,
     alpha_cutoff = alpha_cutoff,
     alpha_hard_cutoff = alpha_hard_cutoff,
+    borderline_extreme_cutoff = borderline_extreme_cutoff,
+    borderline_max_metric_flags = borderline_max_metric_flags,
     gini_density_control = gini_density_control,
     densityCutoff = densityCutoff,
     cutoff_percentile = cutoff_percentile,
@@ -203,4 +262,59 @@ get_summary_of_outliers <- function(object,
     summary_counts = summary_counts,
     qc_criteria = qc_criteria
   ))
+}
+
+# ==============================================================================
+# Condition extraction helpers
+# ==============================================================================
+
+#' Parse a semicolon-separated condition_patterns string into a character vector.
+#' Returns character(0) if the input is NA, empty, or whitespace-only.
+#' Recognised tokens: "SINCEL" (matches SINCEL-[0-9]+) and "numeric" (matches _[0-9]+$).
+parse_condition_patterns <- function(patterns_str) {
+  if (is.null(patterns_str) || is.na(patterns_str) ||
+      !nzchar(trimws(as.character(patterns_str))))
+    return(character(0))
+  trimws(strsplit(as.character(patterns_str), ";")[[1]])
+}
+
+#' Extract per-cell condition labels from a vector of cell names.
+#'
+#' @param cell_names  Character vector of original cell names (before any stripping).
+#' @param patterns    Character vector from parse_condition_patterns().
+#'                    Recognised tokens: "SINCEL", "numeric".
+#' @return  data.frame with columns: cell, sincel_part, numeric_part, condition.
+#'          Cells that match no pattern receive condition = "all".
+extract_cell_conditions <- function(cell_names, patterns) {
+  use_sincel  <- "SINCEL"  %in% toupper(patterns)
+  use_numeric <- "numeric" %in% tolower(patterns)
+
+  sincel_part  <- rep(NA_character_, length(cell_names))
+  numeric_part <- rep(NA_character_, length(cell_names))
+
+  if (use_sincel) {
+    m <- regexpr("SINCEL-[0-9]+", cell_names, ignore.case = TRUE)
+    sincel_part <- ifelse(m > 0, regmatches(cell_names, m), NA_character_)
+  }
+
+  if (use_numeric) {
+    has_num <- grepl("_[0-9]+$", cell_names)
+    numeric_part[has_num] <- sub(".*_([0-9]+)$", "\\1", cell_names[has_num])
+  }
+
+  condition <- dplyr::case_when(
+    use_sincel  & use_numeric &
+      !is.na(sincel_part) & !is.na(numeric_part)  ~ paste0(sincel_part, "_", numeric_part),
+    use_sincel  & !is.na(sincel_part)              ~ sincel_part,
+    use_numeric & !is.na(numeric_part)             ~ numeric_part,
+    TRUE                                           ~ "all"
+  )
+
+  data.frame(
+    cell         = cell_names,
+    sincel_part  = sincel_part,
+    numeric_part = numeric_part,
+    condition    = condition,
+    stringsAsFactors = FALSE
+  )
 }

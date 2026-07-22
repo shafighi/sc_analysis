@@ -71,6 +71,20 @@ Rscript scripts/05_visualize_dropout_heatmap.R \
 
 See [scripts/README.md](scripts/README.md) for detailed pipeline documentation.
 
+## Post-scUnique visualizations
+
+After scUnique completes, run the separate visualization pipeline on its sample
+result directory:
+
+```bash
+./run_post_scunique.sh /path/to/scunique/results/SLX-27548_500 /path/to/output
+```
+
+This generates a tree-aligned copy-number heatmap with shortened readable cell
+labels, plus the distribution and per-cell CSV of validated unique events where
+`freq == 1`. See [scripts/README.md](scripts/README.md#standalone-post-scunique-visualization-pipeline)
+for inputs and all generated files.
+
 ## Output
 
 **Output file** (named by output folder + config + date):
@@ -110,7 +124,8 @@ Same config + same date = overwrites previous file (no redundant copies).
 | `post-scAbsolute` | Cells that passed scAbsolute processing (not all sequenced cells) |
 | `Replicating` | Cells in S-phase (identified by read depth variation) |
 | `Outliers(RPC)` | Non-replicating cells with RPC < 25 (filtered first) |
-| `Outliers(Alpha/Mapd/Gini,post-RPC)` | Cells that passed RPC but failed Alpha/Mapd/Gini QC |
+| `Outliers(Alpha/Mapd/Gini,post-RPC)` | High-confidence metric outliers after separating borderline cells |
+| `Borderline` | Up to two mild metric failures below the extreme cutoff; held out pending manual review |
 | `PassedQC(incl.Normal)` | Cells passing all QC filters (includes Normal) |
 | `Normal` | Diploid cells where >95% of bins have CN=2 |
 | `PassedQC-Normal` | Aberrant cells with CNVs that passed QC |
@@ -128,13 +143,14 @@ post-scAbsolute (cells passed scAbsolute)
 └── Non-replicating
     ├── Outliers(RPC) ──────────────────────► removed (RPC < 25)
     └── Passed RPC
-        ├── Outliers(Alpha/Mapd/Gini) ──────► removed (QC failed)
+        ├── Outliers(Alpha/Mapd/Gini) ──────► removed (high-confidence QC failure)
+        ├── Borderline ─────────────────────► held out for manual profile review
         └── PassedQC(incl.Normal)
             ├── Normal (diploid, >95% CN=2)
             └── PassedQC-Normal (aberrant, has CNVs)
 ```
 
-**Formula:** `post-scAbsolute` = `Replicating` + `Outliers(RPC)` + `Outliers(Alpha/Mapd/Gini)` + `PassedQC(incl.Normal)`
+**Formula:** `post-scAbsolute` = `Replicating` + `Outliers(RPC)` + `Outliers(Alpha/Mapd/Gini)` + `Borderline` + `PassedQC(incl.Normal)`
 
 ## QC Pipeline Explanation
 
@@ -149,7 +165,10 @@ The outlier detection pipeline applies **sequential filtering** on non-replicati
    - **Gini coefficient**: measures inequality in read distribution
    - **HMM Alpha**: measures segmentation confidence
 
-   Cells failing any of these metrics are marked as `Outliers(Alpha/Mapd/Gini,post-RPC)`.
+   Cells failing up to two metrics, without exceeding the extreme residual cutoff,
+   are marked `Borderline`. Other failures are high-confidence
+   `Outliers(Alpha/Mapd/Gini,post-RPC)`. Borderline cells remain outside PassedQC
+   until their annotated copy-number profiles are manually reviewed.
 
 4. **PassedQC** cells are those that passed ALL filters (RPC + Alpha/MAPD/Gini). This includes both aberrant cells (with CNVs) and normal diploid cells.
 
@@ -157,7 +176,12 @@ The outlier detection pipeline applies **sequential filtering** on non-replicati
 
 6. **PassedQC-Normal** = aberrant cells that passed QC but have copy number variations.
 
-**Key point:** The outlier categories are **non-overlapping** because filtering is sequential. A cell marked as `Outliers(RPC)` never gets evaluated for Alpha/MAPD/Gini, so there's no double-counting.
+**Key point:** The categories are **non-overlapping** because filtering is sequential.
+`borderline_cells.csv`, `cells_borderline.rds`, and
+`figures/cn_profiles_borderline.pdf` provide an auditable manual-review bundle.
+The PassedQC, outlier, and Borderline profile PDFs begin with the exact run
+thresholds and annotate every cell with QC status, failure reason(s), and metrics.
+The same annotations are available as `all_cells_qc.csv`.
 
 ## QC Configuration
 
