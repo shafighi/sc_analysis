@@ -355,6 +355,11 @@ plot_dropout_plate <- function(cell_pos_dropout_path, cell_chr_dropout,
       filter(plate_id == pid) %>%
       select(AZ, Number, total_dropout)
     n_cells <- nrow(plate_data)
+    
+    if (n_cells < 4) {
+      message("  Skipping plate ", pid, " — only ", n_cells, " cell(s), minimum is 4")
+      next
+    }
 
     if (length(plates) == 1) {
       outfile <- file.path(fig_dir, "dropout_plate_heatmap.png")
