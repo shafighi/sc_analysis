@@ -181,6 +181,57 @@ install.packages(c("dplyr", "tidyr", "ggplot2", "knitr", "kableExtra", "flextabl
 
 ---
 
+## Standalone post-scUnique visualization pipeline
+
+The post-scUnique pipeline is intentionally separate from the scAbsolute QC
+pipeline. Run it after scUnique has completed and written its per-sample RDS
+files.
+
+```bash
+./run_post_scunique.sh \
+    /path/to/scunique/results/SLX-27548_500 \
+    /path/to/output
+```
+
+If a result directory contains more than one `*.finalCN.RDS`, provide the
+sample prefix as the third argument:
+
+```bash
+./run_post_scunique.sh \
+    /path/to/scunique/results/sample_directory \
+    /path/to/output \
+    SLX-27548_500
+```
+
+The input directory must contain matching files named:
+
+- `<prefix>.finalCN.RDS`
+- `<prefix>.tree.RDS`
+- `<prefix>.df_pass_post.RDS`
+
+Outputs:
+
+- `<prefix>_tree_cn_heatmap_labeled.pdf` and `.png` - final copy-number
+  heatmap ordered by the evolutionary tree. The tree receives a wide dedicated
+  margin, and the shared prefix is removed from displayed cell labels.
+- `<prefix>_freq1_unique_events_distribution.pdf` and `.png` - histogram and
+  sorted per-cell counts of validated events where `freq == 1`.
+- `<prefix>_freq1_unique_events_per_cell.csv` - full cell name, shortened label,
+  and event count, including zero-event cells.
+- `<prefix>_post_scunique_summary.csv` - cell/event totals and the exact shared
+  label prefix removed for plotting.
+
+The underlying script can also be run directly:
+
+```bash
+Rscript scripts/08_post_scunique_visualizations.R \
+    /path/to/scunique/results/SLX-27548_500 \
+    /path/to/output \
+    SLX-27548_500
+```
+
+---
+
 ## Directory Structure
 
 ```

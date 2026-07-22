@@ -71,6 +71,20 @@ Rscript scripts/05_visualize_dropout_heatmap.R \
 
 See [scripts/README.md](scripts/README.md) for detailed pipeline documentation.
 
+## Post-scUnique visualizations
+
+After scUnique completes, run the separate visualization pipeline on its sample
+result directory:
+
+```bash
+./run_post_scunique.sh /path/to/scunique/results/SLX-27548_500 /path/to/output
+```
+
+This generates a tree-aligned copy-number heatmap with shortened readable cell
+labels, plus the distribution and per-cell CSV of validated unique events where
+`freq == 1`. See [scripts/README.md](scripts/README.md#standalone-post-scunique-visualization-pipeline)
+for inputs and all generated files.
+
 ## Output
 
 **Output file** (named by output folder + config + date):
