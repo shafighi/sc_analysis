@@ -5,8 +5,7 @@ channels:
   - defaults
 
 dependencies:
-  - r-base=4.3
-  - r-essentials
+  - r-base=4.4
 
   # --- CRAN packages ---
   - r-ggplot2
@@ -27,7 +26,7 @@ dependencies:
   - r-viridis
   - r-rcolorbrewer
   - r-circlize
-  - r-complexheatmap
+  - bioconductor-complexheatmap
   - r-pheatmap
   - r-dendextend
   - r-ape
@@ -39,7 +38,6 @@ dependencies:
   - r-future
   - r-future.apply
   - r-matrixstats
-  - r-nmf
   - r-nnls
   - r-quadprog
   - r-corrplot
